@@ -289,11 +289,30 @@ class SubjectDrawGUI:
 
         inner.columnconfigure(1, weight=1)
 
+        preset_frame = ttk.Frame(inner, style="Card.TFrame")
+        preset_frame.grid(row=6, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ttk.Label(preset_frame, text="快捷填充：", style="Section.TLabel").pack(side="left")
+
+        def fill_ollama():
+            vars_["endpoint"].set("http://localhost:11434/v1/chat/completions")
+            vars_["key"].set("ollama")
+            vars_["model"].set("qwen2.5-coder:7b")
+
+        def fill_openai():
+            vars_["endpoint"].set("https://api.openai.com/v1/chat/completions")
+            vars_["key"].set("")
+            vars_["model"].set("gpt-4o-mini")
+
+        ttk.Button(preset_frame, text="Ollama", style="Secondary.TButton",
+                   command=fill_ollama).pack(side="left", padx=(0, 6))
+        ttk.Button(preset_frame, text="OpenAI", style="Secondary.TButton",
+                   command=fill_openai).pack(side="left")
+
         btn_frame = ttk.Frame(inner, style="Card.TFrame")
-        btn_frame.grid(row=6, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btn_frame.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
 
         status_label = ttk.Label(inner, text="", style="Card.TLabel")
-        status_label.grid(row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        status_label.grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
         def on_test():
             status_label.config(text="测试连接中...", foreground=C["text2"])
@@ -302,8 +321,8 @@ class SubjectDrawGUI:
             for k, v in vars_.items():
                 test_cfg[k] = v.get()
             try:
-                if key == "temperature" or key == "max_tokens":
-                    test_cfg[key] = float(test_cfg[key]) if key == "temperature" else int(test_cfg[key])
+                test_cfg["temperature"] = float(test_cfg["temperature"])
+                test_cfg["max_tokens"] = int(test_cfg["max_tokens"])
             except ValueError:
                 pass
             try:
