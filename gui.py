@@ -569,7 +569,11 @@ class SubjectDrawGUI:
 
         browse_btn = ttk.Button(inner, text="浏览", style="Secondary.TButton",
                                 command=self.on_browse_json)
-        browse_btn.grid(row=2, column=3, sticky="w", pady=(0, 10))
+        browse_btn.grid(row=2, column=3, sticky="w", padx=(0, 8), pady=(0, 10))
+
+        preview_btn = ttk.Button(inner, text="生成预览", style="Primary.TButton",
+                                 command=self.on_generate_preview)
+        preview_btn.grid(row=2, column=4, sticky="w", pady=(0, 10))
 
         inner.columnconfigure(0, weight=0)
         inner.columnconfigure(2, weight=1)
@@ -637,12 +641,6 @@ class SubjectDrawGUI:
         self.json_text.configure(yscrollcommand=json_scroll.set)
         self.json_text.pack(side="left", fill="both", expand=True)
         json_scroll.pack(side="right", fill="y")
-
-        # ── Generate button (always visible at bottom) ──
-        btn_bar = tk.Frame(outer, bg=C["bg"])
-        btn_bar.pack(fill="x", pady=(8, 0))
-        ttk.Button(btn_bar, text="生成预览", style="Primary.TButton",
-                   command=self.on_generate_preview).pack(anchor="e")
 
     def on_select_json(self, event=None):
         label = self.json_choice_var.get()
