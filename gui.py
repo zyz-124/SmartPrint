@@ -50,7 +50,7 @@ class SubjectDrawGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("SubjectDraw")
-        self.root.geometry("620x700")
+        self.root.geometry("620x740")
         self.root.resizable(False, False)
         self.root.configure(bg=C["bg"])
 
@@ -638,8 +638,11 @@ class SubjectDrawGUI:
         self.json_text.pack(side="left", fill="both", expand=True)
         json_scroll.pack(side="right", fill="y")
 
-        ttk.Button(edit_inner, text="生成预览", style="Primary.TButton",
-                   command=self.on_generate_preview).pack(anchor="e", pady=(8, 0))
+        # ── Generate button (always visible at bottom) ──
+        btn_bar = tk.Frame(outer, bg=C["bg"])
+        btn_bar.pack(fill="x", pady=(8, 0))
+        ttk.Button(btn_bar, text="生成预览", style="Primary.TButton",
+                   command=self.on_generate_preview).pack(anchor="e")
 
     def on_select_json(self, event=None):
         label = self.json_choice_var.get()
