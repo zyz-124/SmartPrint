@@ -13,6 +13,8 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 TEMPLATES_DIR = os.path.join(BUNDLE_DIR, "templates")
 FORMATS_DIR = os.path.join(BUNDLE_DIR, "formats")
 
+API_CONFIG_PATH = os.path.join(BASE_DIR, "api_config.json")
+
 DEFAULT_FORMAT = "思维导图"
 DEFAULT_THEME = "素雅灰"
 DEFAULT_STYLE = "简约几何"

@@ -11,6 +11,7 @@ from core.runner import run_mode_b
 from core.format_manager import discover_formats, load_prompt
 from core.theme import list_themes
 from core.decorations import list_styles
+from core.ai import load_config, save_config, test_connection, generate_json
 
 PRESET_SUBJECTS = ["历史", "地理", "生物", "语文", "政治"]
 
@@ -68,6 +69,7 @@ class SubjectDrawGUI:
 
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill="both", expand=True, padx=10, pady=(10, 0))
+        self.notebook = notebook
 
         self.tab_a = ttk.Frame(notebook, style="TFrame")
         self.tab_b = ttk.Frame(notebook, style="TFrame")
@@ -208,9 +210,15 @@ class SubjectDrawGUI:
 
         inner.columnconfigure(0, weight=1)
 
-        ttk.Button(inner, text="生成提示词", style="Primary.TButton",
-                   command=self.on_generate_prompt).grid(
-            row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btn_frame = ttk.Frame(inner, style="Card.TFrame")
+        btn_frame.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
+
+        ttk.Button(btn_frame, text="AI 设置", style="Secondary.TButton",
+                   command=self.open_settings).pack(side="left", padx=(0, 8))
+        ttk.Button(btn_frame, text="AI 生成", style="Primary.TButton",
+                   command=self.on_ai_generate).pack(side="left", padx=(0, 8))
+        ttk.Button(btn_frame, text="生成提示词", style="Primary.TButton",
+                   command=self.on_generate_prompt).pack(side="left")
 
         # Prompt text area
         text_card = self._card(outer)
@@ -240,6 +248,130 @@ class SubjectDrawGUI:
         if not self.topic_var.get().strip():
             self.topic_var.set("如 辛亥革命、光合作用")
             event.widget.config(foreground="gray")
+
+    # ── Settings Dialog ────────────────────────────────
+    def open_settings(self):
+        cfg = load_config()
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("API 设置")
+        dlg.geometry("480x340")
+        dlg.resizable(False, False)
+        dlg.configure(bg=C["bg"])
+        dlg.transient(self.root)
+        dlg.grab_set()
+
+        card = self._card(dlg)
+        card.pack(fill="both", expand=True, padx=12, pady=12)
+
+        inner = ttk.Frame(card, style="Card.TFrame", padding=16)
+        inner.pack(fill="x")
+
+        ttk.Label(inner, text="API 设置", style="Title.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
+
+        fields = [
+            (1, "接口地址：", "endpoint"),
+            (2, "API Key：", "key"),
+            (3, "模型：", "model"),
+            (4, "Temperature：", "temperature"),
+            (5, "Max Tokens：", "max_tokens"),
+        ]
+        vars_ = {}
+        for row, label, key in fields:
+            self._section_label(inner, label).grid(
+                row=row, column=0, sticky="w", pady=3)
+            var = tk.StringVar(value=str(cfg.get(key, "")))
+            vars_[key] = var
+            w = 30 if key == "endpoint" else 24
+            ttk.Entry(inner, textvariable=var, width=w).grid(
+                row=row, column=1, sticky="ew", pady=3)
+
+        inner.columnconfigure(1, weight=1)
+
+        btn_frame = ttk.Frame(inner, style="Card.TFrame")
+        btn_frame.grid(row=6, column=0, columnspan=2, sticky="e", pady=(12, 0))
+
+        status_label = ttk.Label(inner, text="", style="Card.TLabel")
+        status_label.grid(row=7, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
+        def on_test():
+            status_label.config(text="测试连接中...", foreground=C["text2"])
+            dlg.update_idletasks()
+            test_cfg = dict(DEFAULT_CONFIG)
+            for k, v in vars_.items():
+                test_cfg[k] = v.get()
+            try:
+                if key == "temperature" or key == "max_tokens":
+                    test_cfg[key] = float(test_cfg[key]) if key == "temperature" else int(test_cfg[key])
+            except ValueError:
+                pass
+            try:
+                test_connection(test_cfg)
+                status_label.config(text="连接成功", foreground=C["success"])
+            except Exception as e:
+                status_label.config(text=f"失败: {e}", foreground=C["error"])
+
+        def on_save():
+            new_cfg = dict(DEFAULT_CONFIG)
+            for k, v in vars_.items():
+                val = v.get()
+                if k == "temperature":
+                    try:
+                        val = float(val)
+                    except ValueError:
+                        val = 0.3
+                elif k == "max_tokens":
+                    try:
+                        val = int(val)
+                    except ValueError:
+                        val = 4096
+                new_cfg[k] = val
+            save_config(new_cfg)
+            status_label.config(text="已保存", foreground=C["success"])
+            dlg.after(600, dlg.destroy)
+
+        ttk.Button(btn_frame, text="测试连接", style="Secondary.TButton",
+                   command=on_test).pack(side="left", padx=(0, 8))
+        ttk.Button(btn_frame, text="保存", style="Primary.TButton",
+                   command=on_save).pack(side="left")
+
+    # ── AI Generate ────────────────────────────────────
+    def on_ai_generate(self):
+        subject = self.subject_var.get().strip()
+        topic = self.topic_var.get().strip()
+        fmt = self.format_a_var.get().strip()
+
+        if not subject or not topic or topic == "如 辛亥革命、光合作用":
+            self.status_var.set("请填写学科和主题")
+            return
+
+        cfg = load_config()
+        if not cfg.get("key"):
+            self.status_var.set("请先在 API 设置中配置 Key")
+            self.open_settings()
+            return
+
+        self.status_var.set("AI 生成中，请稍候...")
+        self.root.update_idletasks()
+
+        try:
+            data = generate_json(subject, topic, fmt, cfg)
+        except Exception as e:
+            self.status_var.set(f"AI 生成失败: {e}")
+            return
+
+        json_str = json.dumps(data, ensure_ascii=False, indent=2)
+        self.prompt_text.configure(state="normal")
+        self.prompt_text.delete("1.0", "end")
+        self.prompt_text.insert("1.0", json_str)
+        self.prompt_text.configure(state="disabled")
+
+        self.json_text.delete("1.0", "end")
+        self.json_text.insert("1.0", json_str)
+
+        self.notebook.select(1)
+        self.status_var.set(f"AI 已生成 {subject}/{topic}，已填入编辑器")
 
     def on_generate_prompt(self):
         subject = self.subject_var.get().strip()

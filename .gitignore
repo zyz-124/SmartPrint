@@ -7,3 +7,6 @@ api_config.json
 *.log
 .DS_Store
 Thumbs.db
+build/
+dist/
+*.spec
