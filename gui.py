@@ -218,6 +218,8 @@ class SubjectDrawGUI:
                    command=self.open_settings).pack(side="left", padx=(0, 8))
         ttk.Button(btn_frame, text="AI 生成", style="Primary.TButton",
                    command=self.on_ai_generate).pack(side="left", padx=(0, 8))
+        ttk.Button(btn_frame, text="AI 一键生成", style="Primary.TButton",
+                   command=self.on_ai_oneclick).pack(side="left", padx=(0, 8))
         ttk.Button(btn_frame, text="生成提示词", style="Primary.TButton",
                    command=self.on_generate_prompt).pack(side="left")
 
@@ -440,6 +442,70 @@ class SubjectDrawGUI:
             self.root.after(0, _fill)
 
         threading.Thread(target=_do_generate, daemon=True).start()
+
+    def on_ai_oneclick(self):
+        subject = self.subject_var.get().strip()
+        topic = self.topic_var.get().strip()
+        fmt = self.format_a_var.get().strip()
+
+        if not subject or not topic or topic == "如 辛亥革命、光合作用":
+            self.status_var.set("请填写学科和主题")
+            return
+
+        cfg = load_config()
+        if not cfg.get("key"):
+            self.status_var.set("请先在 API 设置中配置 Key")
+            self.open_settings()
+            return
+
+        self.status_var.set("AI 一键生成中，请稍候...")
+
+        def _do():
+            try:
+                data = generate_json(subject, topic, fmt, cfg)
+            except Exception as e:
+                self.root.after(0, lambda: self.status_var.set(f"AI 生成失败: {e}"))
+                return
+
+            json_str = json.dumps(data, ensure_ascii=False, indent=2)
+
+            try:
+                from config import OUTPUT_DIR
+                import webbrowser
+                fmt_opts = dict(
+                    theme=self.theme_var.get().strip() if hasattr(self, "theme_var") else DEFAULT_THEME,
+                    style=self.style_var.get().strip() if hasattr(self, "style_var") else DEFAULT_STYLE,
+                    student_name=getattr(self, "name_var", tk.StringVar()).get().strip(),
+                    cls=getattr(self, "cls_var", tk.StringVar()).get().strip(),
+                    student_id=getattr(self, "sid_var", tk.StringVar()).get().strip(),
+                    date=getattr(self, "date_var", tk.StringVar()).get().strip(),
+                    watermark=getattr(self, "watermark_var", tk.StringVar()).get().strip(),
+                )
+                html = render_html(data, fmt=fmt, **fmt_opts)
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+                center = data.get("center", "output")
+                subj = data.get("subject", "")
+                filename = f"{subj}_{center}.html" if subj else f"{center}.html"
+                out_path = os.path.join(OUTPUT_DIR, filename)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(html)
+                webbrowser.open("file:///" + os.path.abspath(out_path).replace("\\", "/"))
+            except Exception as e:
+                self.root.after(0, lambda: self.status_var.set(f"渲染失败: {e}"))
+                return
+
+            def _done():
+                self.prompt_text.configure(state="normal")
+                self.prompt_text.delete("1.0", "end")
+                self.prompt_text.insert("1.0", json_str)
+                self.prompt_text.configure(state="disabled")
+                self.json_text.delete("1.0", "end")
+                self.json_text.insert("1.0", json_str)
+                self.status_var.set(f"已生成 {subject}/{topic}，浏览器已打开预览")
+
+            self.root.after(0, _done)
+
+        threading.Thread(target=_do, daemon=True).start()
 
     def on_generate_prompt(self):
         subject = self.subject_var.get().strip()
