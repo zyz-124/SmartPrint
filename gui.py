@@ -13,6 +13,7 @@ from core.format_manager import discover_formats, load_prompt
 from core.theme import list_themes
 from core.decorations import list_styles
 from core.ai import load_config, save_config, test_connection, generate_json, DEFAULT_CONFIG
+from core.prompts import PROMPT_STYLES
 
 PRESET_SUBJECTS = ["历史", "地理", "生物", "语文", "政治"]
 
@@ -209,10 +210,16 @@ class SubjectDrawGUI:
         topic_e.bind("<FocusOut>", self._on_topic_focus_out)
         topic_e.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(0, 4))
 
+        self._section_label(inner, "提示词风格").grid(
+            row=7, column=0, sticky="w", pady=(0, 2))
+        self.prompt_style_var = tk.StringVar(value="简约")
+        self._combo(inner, self.prompt_style_var, PROMPT_STYLES, 22).grid(
+            row=8, column=0, columnspan=2, sticky="ew", pady=(0, 4))
+
         inner.columnconfigure(0, weight=1)
 
         btn_frame = ttk.Frame(inner, style="Card.TFrame")
-        btn_frame.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        btn_frame.grid(row=9, column=0, columnspan=2, sticky="e", pady=(12, 0))
 
         ttk.Button(btn_frame, text="AI 设置", style="Secondary.TButton",
                    command=self.open_settings).pack(side="left", padx=(0, 8))
@@ -405,6 +412,7 @@ class SubjectDrawGUI:
         subject = self.subject_var.get().strip()
         topic = self.topic_var.get().strip()
         fmt = self.format_a_var.get().strip()
+        style = self.prompt_style_var.get().strip()
 
         if not subject or not topic or topic == "如 辛亥革命、光合作用":
             self.status_var.set("请填写学科和主题")
@@ -420,7 +428,7 @@ class SubjectDrawGUI:
 
         def _do_generate():
             try:
-                data = generate_json(subject, topic, fmt, cfg)
+                data = generate_json(subject, topic, fmt, cfg, style=style)
             except Exception as e:
                 self.root.after(0, lambda: self.status_var.set(f"AI 生成失败: {e}"))
                 return
@@ -447,6 +455,7 @@ class SubjectDrawGUI:
         subject = self.subject_var.get().strip()
         topic = self.topic_var.get().strip()
         fmt = self.format_a_var.get().strip()
+        style = self.prompt_style_var.get().strip()
 
         if not subject or not topic or topic == "如 辛亥革命、光合作用":
             self.status_var.set("请填写学科和主题")
@@ -462,7 +471,7 @@ class SubjectDrawGUI:
 
         def _do():
             try:
-                data = generate_json(subject, topic, fmt, cfg)
+                data = generate_json(subject, topic, fmt, cfg, style=style)
             except Exception as e:
                 self.root.after(0, lambda: self.status_var.set(f"AI 生成失败: {e}"))
                 return
@@ -511,13 +520,14 @@ class SubjectDrawGUI:
         subject = self.subject_var.get().strip()
         topic = self.topic_var.get().strip()
         fmt = self.format_a_var.get().strip()
+        style = self.prompt_style_var.get().strip()
 
         if not subject or not topic or topic == "如 辛亥革命、光合作用":
             self.status_var.set("请填写学科和主题")
             return
 
         try:
-            text = load_prompt(fmt, subject, topic)
+            text = load_prompt(fmt, subject, topic, style=style)
         except Exception as e:
             self.status_var.set(f"错误: {e}")
             return

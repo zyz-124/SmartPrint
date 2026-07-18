@@ -6,8 +6,8 @@ from core.format_manager import load_prompt
 from config import OUTPUT_DIR, DEFAULT_FORMAT
 
 
-def run_mode_a(subject, topic, fmt=DEFAULT_FORMAT):
-    text = load_prompt(fmt, subject, topic)
+def run_mode_a(subject, topic, fmt=DEFAULT_FORMAT, style=None):
+    text = load_prompt(fmt, subject, topic, style=style)
     print(text)
 
 

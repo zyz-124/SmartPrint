@@ -28,8 +28,16 @@ def _format_dir(fmt):
     return fmt_dir
 
 
-def load_prompt(fmt, subject, topic):
-    """读取指定格式的 prompt.md 并替换占位符"""
+def load_prompt(fmt, subject, topic, style=None):
+    """读取提示词模板并替换占位符。
+
+    style 为 None 时读取原始 prompt.md（向后兼容）；
+    style 为 "简约"/"严谨"/"丰富"/"逻辑" 时使用新模板系统。
+    """
+    if style is not None:
+        from core.prompts import build_prompt
+        return build_prompt(subject, topic, fmt, style)
+
     fmt_dir = _format_dir(fmt)
     prompt_path = os.path.join(fmt_dir, "prompt.md")
     if not os.path.isfile(prompt_path):

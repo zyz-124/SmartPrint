@@ -46,8 +46,8 @@ def test_connection(cfg):
     return True
 
 
-def generate_json(subject, topic, fmt, cfg):
-    prompt = load_prompt(fmt, subject, topic)
+def generate_json(subject, topic, fmt, cfg, style=None):
+    prompt = load_prompt(fmt, subject, topic, style=style)
     prompt += "\n\n只输出合法 JSON，不要任何解释、注释或 markdown 标记。"
 
     payload = {

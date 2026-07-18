@@ -10,6 +10,7 @@ from core.runner import run_mode_a, run_mode_b
 from config import DEFAULT_FORMAT, DEFAULT_THEME, DEFAULT_STYLE, OUTPUT_DIR
 from core.theme import list_themes
 from core.decorations import list_styles
+from core.prompts import PROMPT_STYLES
 
 
 def build_parser():
@@ -33,6 +34,9 @@ def build_parser():
     parser.add_argument("--sid", default="", help="学号")
     parser.add_argument("--date", default="", help="日期")
     parser.add_argument("--watermark", default="", help="水印文字")
+    parser.add_argument("--prompt-style", dest="prompt_style", default=None,
+                        choices=PROMPT_STYLES,
+                        help="提示词风格（简约/严谨/丰富/逻辑）")
     parser.add_argument("--ai", action="store_true",
                         help="使用 AI 生成 JSON（需要先配置 API）")
     parser.add_argument("--gui", action="store_true", help="启动图形界面")
@@ -80,7 +84,8 @@ def main(argv=None):
 
         print(f"AI 生成中: {args.subject} / {args.topic} ...")
         try:
-            data = generate_json(args.subject, args.topic, args.fmt, cfg)
+            data = generate_json(args.subject, args.topic, args.fmt, cfg,
+                                 style=args.prompt_style)
         except Exception as e:
             print(f"错误: {e}")
             return 1
@@ -96,7 +101,8 @@ def main(argv=None):
         return 0
 
     if args.subject and args.topic:
-        run_mode_a(args.subject, args.topic, fmt=args.fmt)
+        run_mode_a(args.subject, args.topic, fmt=args.fmt,
+                   style=args.prompt_style)
         return 0
 
     parser.print_help()
