@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -11,7 +12,7 @@ from core.runner import run_mode_b
 from core.format_manager import discover_formats, load_prompt
 from core.theme import list_themes
 from core.decorations import list_styles
-from core.ai import load_config, save_config, test_connection, generate_json
+from core.ai import load_config, save_config, test_connection, generate_json, DEFAULT_CONFIG
 
 PRESET_SUBJECTS = ["历史", "地理", "生物", "语文", "政治"]
 
@@ -289,22 +290,27 @@ class SubjectDrawGUI:
         model_combo = ttk.Combobox(inner, textvariable=vars_["model"],
                                    width=22, state="readonly")
 
-        def _fetch_ollama_models():
-            import urllib.request, json as _json
+        openai_models = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]
+        model_combo["values"] = openai_models
+        model_combo.grid(row=3, column=1, sticky="ew", pady=3)
+
+        def _fetch_ollama_async():
+            import urllib.request
             try:
                 req = urllib.request.Request("http://localhost:11434/api/tags")
-                with urllib.request.urlopen(req, timeout=3) as resp:
-                    data = _json.loads(resp.read().decode("utf-8"))
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
                 names = [m["name"] for m in data.get("models", [])]
-                return names if names else []
+                if names:
+                    def _update():
+                        model_combo["values"] = names + ["---"] + openai_models
+                        if not vars_["model"].get() or vars_["model"].get() not in names:
+                            vars_["model"].set(names[0])
+                    self.root.after(0, _update)
             except Exception:
-                return []
+                pass
 
-        ollama_models = _fetch_ollama_models()
-        openai_models = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]
-        all_models = ollama_models + ["---"] + openai_models if ollama_models else openai_models
-        model_combo["values"] = all_models
-        model_combo.grid(row=3, column=1, sticky="ew", pady=3)
+        threading.Thread(target=_fetch_ollama_async, daemon=True).start()
 
         self._section_label(inner, "Temperature：").grid(
             row=4, column=0, sticky="w", pady=3)
@@ -327,10 +333,7 @@ class SubjectDrawGUI:
         def fill_ollama():
             vars_["endpoint"].set("http://localhost:11434/v1/chat/completions")
             vars_["key"].set("ollama")
-            refreshed = _fetch_ollama_models()
-            if refreshed:
-                model_combo["values"] = refreshed + ["---"] + openai_models
-            vars_["model"].set(refreshed[0] if refreshed else "qwen2.5-coder:7b")
+            _fetch_ollama_async()
 
         def fill_openai():
             vars_["endpoint"].set("https://api.openai.com/v1/chat/completions")
@@ -351,7 +354,6 @@ class SubjectDrawGUI:
 
         def on_test():
             status_label.config(text="测试连接中...", foreground=C["text2"])
-            dlg.update_idletasks()
             test_cfg = dict(DEFAULT_CONFIG)
             for k, v in vars_.items():
                 test_cfg[k] = v.get()
@@ -360,11 +362,17 @@ class SubjectDrawGUI:
                 test_cfg["max_tokens"] = int(test_cfg["max_tokens"])
             except ValueError:
                 pass
-            try:
-                test_connection(test_cfg)
-                status_label.config(text="连接成功", foreground=C["success"])
-            except Exception as e:
-                status_label.config(text=f"失败: {e}", foreground=C["error"])
+
+            def _do_test():
+                try:
+                    test_connection(test_cfg)
+                    self.root.after(0, lambda: status_label.config(
+                        text="连接成功", foreground=C["success"]))
+                except Exception as e:
+                    self.root.after(0, lambda: status_label.config(
+                        text=f"失败: {e}", foreground=C["error"]))
+
+            threading.Thread(target=_do_test, daemon=True).start()
 
         def on_save():
             new_cfg = dict(DEFAULT_CONFIG)
@@ -407,25 +415,31 @@ class SubjectDrawGUI:
             return
 
         self.status_var.set("AI 生成中，请稍候...")
-        self.root.update_idletasks()
 
-        try:
-            data = generate_json(subject, topic, fmt, cfg)
-        except Exception as e:
-            self.status_var.set(f"AI 生成失败: {e}")
-            return
+        def _do_generate():
+            try:
+                data = generate_json(subject, topic, fmt, cfg)
+            except Exception as e:
+                self.root.after(0, lambda: self.status_var.set(f"AI 生成失败: {e}"))
+                return
 
-        json_str = json.dumps(data, ensure_ascii=False, indent=2)
-        self.prompt_text.configure(state="normal")
-        self.prompt_text.delete("1.0", "end")
-        self.prompt_text.insert("1.0", json_str)
-        self.prompt_text.configure(state="disabled")
+            json_str = json.dumps(data, ensure_ascii=False, indent=2)
 
-        self.json_text.delete("1.0", "end")
-        self.json_text.insert("1.0", json_str)
+            def _fill():
+                self.prompt_text.configure(state="normal")
+                self.prompt_text.delete("1.0", "end")
+                self.prompt_text.insert("1.0", json_str)
+                self.prompt_text.configure(state="disabled")
 
-        self.notebook.select(1)
-        self.status_var.set(f"AI 已生成 {subject}/{topic}，已填入编辑器")
+                self.json_text.delete("1.0", "end")
+                self.json_text.insert("1.0", json_str)
+
+                self.notebook.select(1)
+                self.status_var.set(f"AI 已生成 {subject}/{topic}，已填入编辑器")
+
+            self.root.after(0, _fill)
+
+        threading.Thread(target=_do_generate, daemon=True).start()
 
     def on_generate_prompt(self):
         subject = self.subject_var.get().strip()
