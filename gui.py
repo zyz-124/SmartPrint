@@ -270,22 +270,53 @@ class SubjectDrawGUI:
         ttk.Label(inner, text="API 设置", style="Title.TLabel").grid(
             row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
 
-        fields = [
-            (1, "接口地址：", "endpoint"),
-            (2, "API Key：", "key"),
-            (3, "模型：", "model"),
-            (4, "Temperature：", "temperature"),
-            (5, "Max Tokens：", "max_tokens"),
-        ]
+        self._section_label(inner, "接口地址：").grid(
+            row=1, column=0, sticky="w", pady=3)
         vars_ = {}
-        for row, label, key in fields:
-            self._section_label(inner, label).grid(
-                row=row, column=0, sticky="w", pady=3)
-            var = tk.StringVar(value=str(cfg.get(key, "")))
-            vars_[key] = var
-            w = 30 if key == "endpoint" else 24
-            ttk.Entry(inner, textvariable=var, width=w).grid(
-                row=row, column=1, sticky="ew", pady=3)
+        vars_["endpoint"] = tk.StringVar(value=str(cfg.get("endpoint", "")))
+        ttk.Entry(inner, textvariable=vars_["endpoint"], width=30).grid(
+            row=1, column=1, sticky="ew", pady=3)
+
+        self._section_label(inner, "API Key：").grid(
+            row=2, column=0, sticky="w", pady=3)
+        vars_["key"] = tk.StringVar(value=str(cfg.get("key", "")))
+        ttk.Entry(inner, textvariable=vars_["key"], width=24).grid(
+            row=2, column=1, sticky="ew", pady=3)
+
+        self._section_label(inner, "模型：").grid(
+            row=3, column=0, sticky="w", pady=3)
+        vars_["model"] = tk.StringVar(value=str(cfg.get("model", "")))
+        model_combo = ttk.Combobox(inner, textvariable=vars_["model"],
+                                   width=22, state="readonly")
+
+        def _fetch_ollama_models():
+            import urllib.request, json as _json
+            try:
+                req = urllib.request.Request("http://localhost:11434/api/tags")
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                names = [m["name"] for m in data.get("models", [])]
+                return names if names else []
+            except Exception:
+                return []
+
+        ollama_models = _fetch_ollama_models()
+        openai_models = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]
+        all_models = ollama_models + ["---"] + openai_models if ollama_models else openai_models
+        model_combo["values"] = all_models
+        model_combo.grid(row=3, column=1, sticky="ew", pady=3)
+
+        self._section_label(inner, "Temperature：").grid(
+            row=4, column=0, sticky="w", pady=3)
+        vars_["temperature"] = tk.StringVar(value=str(cfg.get("temperature", 0.3)))
+        ttk.Entry(inner, textvariable=vars_["temperature"], width=24).grid(
+            row=4, column=1, sticky="ew", pady=3)
+
+        self._section_label(inner, "Max Tokens：").grid(
+            row=5, column=0, sticky="w", pady=3)
+        vars_["max_tokens"] = tk.StringVar(value=str(cfg.get("max_tokens", 4096)))
+        ttk.Entry(inner, textvariable=vars_["max_tokens"], width=24).grid(
+            row=5, column=1, sticky="ew", pady=3)
 
         inner.columnconfigure(1, weight=1)
 
@@ -296,11 +327,15 @@ class SubjectDrawGUI:
         def fill_ollama():
             vars_["endpoint"].set("http://localhost:11434/v1/chat/completions")
             vars_["key"].set("ollama")
-            vars_["model"].set("qwen2.5-coder:7b")
+            refreshed = _fetch_ollama_models()
+            if refreshed:
+                model_combo["values"] = refreshed + ["---"] + openai_models
+            vars_["model"].set(refreshed[0] if refreshed else "qwen2.5-coder:7b")
 
         def fill_openai():
             vars_["endpoint"].set("https://api.openai.com/v1/chat/completions")
             vars_["key"].set("")
+            model_combo["values"] = openai_models
             vars_["model"].set("gpt-4o-mini")
 
         ttk.Button(preset_frame, text="Ollama", style="Secondary.TButton",
