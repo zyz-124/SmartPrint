@@ -2,7 +2,7 @@ from core.theme import theme_css_vars
 from core.decorations import (
     divider_html, title_ornament,
     shared_css, decoration_css, student_info_html, footer_html,
-    knowledge_panel_html, knowledge_panel_css,
+    knowledge_panel_html, knowledge_panel_css, base_page_css,
 )
 
 
@@ -49,35 +49,7 @@ def render_html(data, **fmt_opts):
 {shared_css()}
 {decoration_css(style)}
 {knowledge_panel_css()}
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-html, body {{ background:#f5f5f5; font-family:"KaiTi","楷体","STKaiti","Microsoft YaHei","SimSun",serif; color:var(--text, #222); }}
-body {{ display:flex; justify-content:center; padding:24px 0; }}
-.page {{
-    width:794px;
-    min-height:auto;
-    background:var(--bg, #fff);
-    position:relative;
-    box-shadow:0 4px 20px rgba(0,0,0,0.08);
-    padding:40px 60px;
-}}
-.header {{
-    text-align:center;
-    margin-bottom:30px;
-}}
-.header h1 {{
-    font-size:28px;
-    letter-spacing:4px;
-    margin-bottom:8px;
-    color:var(--primary, #222);
-}}
-.header .subtitle {{
-    font-size:14px;
-    color:var(--muted, #666);
-}}
-.divider-wrap {{
-    margin: 10px auto;
-    max-width:500px;
-}}
+{base_page_css()}
 .timeline {{
     position:relative;
     padding:10px 0;
@@ -85,23 +57,26 @@ body {{ display:flex; justify-content:center; padding:24px 0; }}
 .timeline::before {{
     content:"";
     position:absolute;
-    left:50%;
-    top:0;
-    bottom:0;
-    width:2px;
+    left:0;
+    right:0;
+    top:50%;
+    height:2px;
     background:var(--border, #888);
-    transform:translateX(-50%);
+    transform:translateY(-50%);
 }}
 .item {{
     display:flex;
     align-items:center;
-    margin-bottom:20px;
     position:relative;
+    width:50%;
+    padding:12px 20px;
 }}
 .item.left {{
+    left:0;
     flex-direction:row;
 }}
 .item.right {{
+    left:50%;
     flex-direction:row-reverse;
 }}
 .dot {{
@@ -111,12 +86,16 @@ body {{ display:flex; justify-content:center; padding:24px 0; }}
     border-radius:50%;
     background:var(--bg, #fff);
     position:absolute;
-    left:50%;
-    transform:translateX(-50%);
     z-index:2;
 }}
+.item.left .dot {{
+    right:0;
+}}
+.item.right .dot {{
+    left:0;
+}}
 .date {{
-    width:42%;
+    width:45%;
     font-size:14px;
     font-weight:bold;
     letter-spacing:1px;
@@ -124,25 +103,25 @@ body {{ display:flex; justify-content:center; padding:24px 0; }}
 }}
 .item.left .date {{
     text-align:right;
-    padding-right:24px;
+    padding-right:16px;
 }}
 .item.right .date {{
     text-align:left;
-    padding-left:24px;
+    padding-left:16px;
 }}
 .event {{
-    width:42%;
+    width:45%;
     font-size:13px;
     color:var(--text, #333);
     line-height:1.5;
 }}
 .item.left .event {{
     text-align:left;
-    padding-left:24px;
+    padding-left:16px;
 }}
 .item.right .event {{
     text-align:right;
-    padding-right:24px;
+    padding-right:16px;
 }}
 </style>
 </head>

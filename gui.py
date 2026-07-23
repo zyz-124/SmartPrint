@@ -1,39 +1,63 @@
+# -*- coding: utf-8 -*-
 import glob
 import json
 import os
-import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-from config import SUBJECTS_DIR, DEFAULT_FORMAT, DEFAULT_THEME, DEFAULT_STYLE
-from core.knowledge import load_knowledge
+from config import (SUBJECTS_DIR, DEFAULT_FORMAT, DEFAULT_THEME,
+                    DEFAULT_STYLE, GUI_SETTINGS_PATH, DEFAULT_GUI_THEME)
+from core.gui_themes import THEMES, list_gui_themes
 from core.renderer import render_html
-from core.runner import run_mode_b
 from core.format_manager import discover_formats, load_prompt
 from core.theme import list_themes
 from core.decorations import list_styles
-from core.ai import load_config, save_config, test_connection, generate_json, DEFAULT_CONFIG
 from core.prompts import PROMPT_STYLES
 
 PRESET_SUBJECTS = ["历史", "地理", "生物", "语文", "政治"]
 
-# ── Color palette ──────────────────────────────────────────
-C = {
-    "bg":       "#F0F2F5",
-    "card":     "#FFFFFF",
-    "primary":  "#4A7DCA",
-    "primary_h":"#3B6AB5",
-    "accent":   "#5B9BD5",
-    "border":   "#D0D5DD",
-    "text":     "#1A1A2E",
-    "text2":    "#4A4A6A",
-    "muted":    "#8E8EA0",
-    "input_bg": "#FAFBFC",
-    "success":  "#2E8B57",
-    "error":    "#C0392B",
-    "tab_bg":   "#E8ECF1",
-    "tab_sel":  "#FFFFFF",
-}
+
+COLOR_GROUPS = [
+    ("侧边栏", [("背景", "sidebar_bg"), ("文字", "sidebar_fg"),
+                ("悬停", "sidebar_active"), ("强调", "sidebar_accent")]),
+    ("内容区", [("背景", "bg"), ("卡片", "card"), ("边框", "border")]),
+    ("文字",   [("主文字", "text"), ("次文字", "text2"), ("辅助", "muted")]),
+    ("强调色", [("主色", "primary"), ("悬停", "primary_h"), ("强调", "accent")]),
+    ("输入框", [("背景", "input_bg")]),
+    ("按钮",   [("主按钮背景", "btn_primary_bg"), ("主按钮文字", "btn_primary_fg"),
+                ("次按钮背景", "btn_secondary_bg"), ("次按钮文字", "btn_secondary_fg")]),
+    ("滚动条", [("背景", "scrollbar_bg"), ("滑块", "scrollbar_fg")]),
+    ("其他",   [("链接", "link"), ("悬停背景", "hover_bg"),
+                ("成功", "success"), ("错误", "error")]),
+]
+
+
+def load_gui_settings():
+    if os.path.isfile(GUI_SETTINGS_PATH):
+        try:
+            with open(GUI_SETTINGS_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"gui_theme": DEFAULT_GUI_THEME}
+
+
+def save_gui_settings(settings):
+    with open(GUI_SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, ensure_ascii=False, indent=2)
+
+
+def _load_theme_colors(theme_name):
+    base = dict(THEMES.get(theme_name, THEMES[DEFAULT_GUI_THEME]))
+    settings = load_gui_settings()
+    custom = settings.get("custom_colors", {})
+    if custom:
+        base.update(custom)
+    for key in ("font_family", "font_size", "sidebar_width", "card_radius"):
+        if key in settings:
+            base[key] = settings[key]
+    base["_name"] = theme_name
+    return base
 
 
 def scan_json_files():
@@ -42,615 +66,559 @@ def scan_json_files():
     for path in sorted(glob.glob(pattern)):
         subject = os.path.basename(os.path.dirname(path))
         topic = os.path.splitext(os.path.basename(path))[0]
-        label = f"{subject}/{topic}"
-        result[label] = path
+        result[f"{subject}/{topic}"] = path
     return result
+
+
+class SidebarItem(tk.Frame):
+    def __init__(self, parent, text, command, colors):
+        super().__init__(parent, bg=colors["sidebar_bg"], cursor="hand2")
+        self.colors = colors
+        self.command = command
+        self.is_active = False
+        ff = colors.get("font_family", "Microsoft YaHei UI")
+        self.bar = tk.Frame(self, bg=colors["sidebar_bg"], width=3)
+        self.bar.pack(side="left", fill="y")
+        self.label = tk.Label(
+            self, text=text,
+            bg=colors["sidebar_bg"], fg=colors["sidebar_fg"],
+            font=(ff, 11),
+            anchor="w", padx=16, pady=10,
+        )
+        self.label.pack(side="left", fill="both", expand=True)
+        for w_ in (self, self.label):
+            w_.bind("<Enter>", self._on_enter)
+            w_.bind("<Leave>", self._on_leave)
+            w_.bind("<Button-1>", self._on_click)
+
+    def _on_enter(self, _):
+        if not self.is_active:
+            bg = self.colors["sidebar_active"]
+            self.configure(bg=bg)
+            self.bar.configure(bg=bg)
+            self.label.configure(bg=bg)
+
+    def _on_leave(self, _):
+        if not self.is_active:
+            bg = self.colors["sidebar_bg"]
+            self.configure(bg=bg)
+            self.bar.configure(bg=bg)
+            self.label.configure(bg=bg)
+
+    def _on_click(self, _):
+        self.command()
+
+    def set_active(self, active):
+        self.is_active = active
+        if active:
+            self.configure(bg=self.colors["sidebar_active"])
+            self.bar.configure(bg=self.colors["sidebar_accent"])
+            self.label.configure(
+                bg=self.colors["sidebar_active"],
+                fg=self.colors["sidebar_accent"],
+            )
+        else:
+            self.configure(bg=self.colors["sidebar_bg"])
+            self.bar.configure(bg=self.colors["sidebar_bg"])
+            self.label.configure(
+                bg=self.colors["sidebar_bg"],
+                fg=self.colors["sidebar_fg"],
+            )
 
 
 class SubjectDrawGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("SubjectDraw")
-        self.root.geometry("620x740")
-        self.root.resizable(False, False)
-        self.root.configure(bg=C["bg"])
+        self.root.geometry("850x650")
+        self.root.resizable(True, True)
+        self.root.minsize(700, 500)
 
-        self._apply_styles()
+        gui_settings = load_gui_settings()
+        theme_name = gui_settings.get("gui_theme", DEFAULT_GUI_THEME)
+        if theme_name not in THEMES:
+            theme_name = DEFAULT_GUI_THEME
+        self.C = _load_theme_colors(theme_name)
+        self.root.configure(bg=self.C["bg"])
 
         self.status_var = tk.StringVar(value="就绪")
+        self.current_page = "prompt"
+        self._prompt_text_content = ""
+        self._json_text_content = ""
 
-        # ── Notebook ────────────────────────────────────
-        style = ttk.Style()
-        style.configure("TNotebook", background=C["bg"], borderwidth=0)
-        style.configure("TNotebook.Tab",
-                        background=C["tab_bg"], foreground=C["text2"],
-                        padding=[16, 6], font=("Microsoft YaHei UI", 10))
-        style.map("TNotebook.Tab",
-                  background=[("selected", C["tab_sel"])],
-                  foreground=[("selected", C["primary"])])
+        avail = discover_formats() or [DEFAULT_FORMAT]
+        default_fmt = DEFAULT_FORMAT if DEFAULT_FORMAT in avail else avail[0]
 
-        notebook = ttk.Notebook(self.root)
-        notebook.pack(fill="both", expand=True, padx=10, pady=(10, 0))
-        self.notebook = notebook
+        self.format_a_var = tk.StringVar(value=default_fmt)
+        self.subject_var = tk.StringVar(value=PRESET_SUBJECTS[0])
+        self.topic_var = tk.StringVar()
+        self.prompt_style_var = tk.StringVar(value="简约")
+        self.format_b_var = tk.StringVar(value=default_fmt)
+        self.json_choice_var = tk.StringVar()
+        self.theme_var = tk.StringVar(value=DEFAULT_THEME)
+        self.style_var = tk.StringVar(value=DEFAULT_STYLE)
 
-        self.tab_a = ttk.Frame(notebook, style="TFrame")
-        self.tab_b = ttk.Frame(notebook, style="TFrame")
-        notebook.add(self.tab_a, text="  生成提示词  ")
-        notebook.add(self.tab_b, text="  生成预览  ")
 
-        self._build_tab_a(self.tab_a)
-        self._build_tab_b(self.tab_b)
+        self._apply_styles()
+        self._build_status_bar()
+        self._build_sidebar()
+        self._build_content_area()
+        self._switch_page("prompt")
 
-        # ── Status bar ──────────────────────────────────
-        status = tk.Label(
-            self.root, textvariable=self.status_var,
-            anchor="w", bg=C["card"], fg=C["muted"],
-            font=("Microsoft YaHei UI", 9),
-            padx=10, pady=4,
-            borderwidth=0, highlightthickness=1,
-            highlightbackground=C["border"], highlightcolor=C["border"],
-        )
-        status.pack(fill="x", side="bottom")
+    def _rebuild_gui(self):
+        for w in self.root.winfo_children():
+            w.destroy()
+        gui_settings = load_gui_settings()
+        theme_name = gui_settings.get("gui_theme", DEFAULT_GUI_THEME)
+        if theme_name not in THEMES:
+            theme_name = DEFAULT_GUI_THEME
+        self.C = _load_theme_colors(theme_name)
+        self.root.configure(bg=self.C["bg"])
+        self._apply_styles()
+        self._build_status_bar()
+        self._build_sidebar()
+        self._build_content_area()
+        self._switch_page(self.current_page)
 
-    # ── Styles ──────────────────────────────────────────
     def _apply_styles(self):
         s = ttk.Style()
         s.theme_use("clam")
-
+        C = self.C
+        ff = C.get("font_family", "Microsoft YaHei UI")
+        fs = C.get("font_size", 10)
         s.configure(".", background=C["bg"], foreground=C["text"],
-                     font=("Microsoft YaHei UI", 10))
+                     font=(ff, fs))
         s.configure("TFrame", background=C["bg"])
         s.configure("Card.TFrame", background=C["card"])
-
         s.configure("TLabel", background=C["bg"], foreground=C["text"],
-                     font=("Microsoft YaHei UI", 10))
+                     font=(ff, fs))
         s.configure("Card.TLabel", background=C["card"], foreground=C["text"])
-        s.configure("Title.TLabel", background=C["card"], foreground=C["primary"],
-                     font=("Microsoft YaHei UI", 13, "bold"))
-        s.configure("Section.TLabel", background=C["card"], foreground=C["text2"],
-                     font=("Microsoft YaHei UI", 9))
-        s.configure("Status.TLabel", background=C["card"], foreground=C["success"],
-                     font=("Microsoft YaHei UI", 9))
-
-        s.configure("TEntry",
-                     fieldbackground=C["input_bg"], foreground=C["text"],
-                     borderwidth=1, relief="solid",
-                     padding=[6, 4])
-        s.map("TEntry",
-              bordercolor=[("focus", C["primary"])],
+        s.configure("TEntry", fieldbackground=C["input_bg"], foreground=C["text"],
+                     borderwidth=1, relief="solid", padding=[6, 4])
+        s.map("TEntry", bordercolor=[("focus", C["primary"])],
               relief=[("focus", "solid")])
-
-        s.configure("TCombobox",
-                     fieldbackground=C["input_bg"], foreground=C["text"],
-                     borderwidth=1, relief="solid",
-                     padding=[6, 4])
-        s.map("TCombobox",
-              bordercolor=[("focus", C["primary"])])
-
-        s.configure("Primary.TButton",
-                     background=C["primary"], foreground="#FFFFFF",
-                     borderwidth=0, padding=[16, 8],
-                     font=("Microsoft YaHei UI", 10, "bold"))
+        s.configure("TCombobox", fieldbackground=C["input_bg"], foreground=C["text"],
+                     borderwidth=1, relief="solid", padding=[6, 4])
+        s.map("TCombobox", bordercolor=[("focus", C["primary"])])
+        s.configure("Primary.TButton", background=C.get("btn_primary_bg", C["primary"]),
+                     foreground=C.get("btn_primary_fg", "#FFFFFF"),
+                     borderwidth=0, padding=[14, 7],
+                     font=(ff, fs, "bold"))
         s.map("Primary.TButton",
               background=[("active", C["primary_h"]), ("pressed", C["primary_h"])])
-
-        s.configure("Secondary.TButton",
-                     background=C["card"], foreground=C["primary"],
-                     borderwidth=1, relief="solid",
-                     padding=[12, 6],
-                     font=("Microsoft YaHei UI", 9))
-        s.map("Secondary.TButton",
-              background=[("active", C["bg"])])
-
-        s.configure("TLabelframe", background=C["card"], foreground=C["text2"],
-                     borderwidth=1, relief="solid",
-                     bordercolor=C["border"])
-        s.configure("TLabelframe.Label", background=C["card"], foreground=C["text2"],
-                     font=("Microsoft YaHei UI", 9, "bold"))
-
+        s.configure("Secondary.TButton", background=C.get("btn_secondary_bg", C["card"]),
+                     foreground=C.get("btn_secondary_fg", C["primary"]),
+                     borderwidth=1, relief="solid", padding=[10, 5],
+                     font=(ff, fs - 1))
+        s.map("Secondary.TButton", background=[("active", C["bg"])])
+        s.configure("Link.TButton", background=C["card"], foreground=C["muted"],
+                     borderwidth=0, padding=[6, 4],
+                     font=(ff, fs - 1))
+        s.map("Link.TButton", foreground=[("active", C["primary"])])
         s.configure("Horizontal.TScrollbar",
-                     background=C["border"], troughcolor=C["bg"],
+                     background=C.get("scrollbar_bg", C["border"]),
+                     troughcolor=C["bg"],
                      borderwidth=0, arrowsize=0)
 
-    # ── Helpers ─────────────────────────────────────────
-    def _card(self, parent, **kw) -> tk.Frame:
-        """White rounded card container."""
-        f = tk.Frame(parent, bg=C["card"], highlightthickness=1,
-                     highlightbackground=C["border"], highlightcolor=C["border"],
-                     **kw)
-        return f
+    def _build_status_bar(self):
+        C = self.C
+        ff = C.get("font_family", "Microsoft YaHei UI")
+        tk.Label(
+            self.root, textvariable=self.status_var,
+            anchor="w", bg=C["card"], fg=C["muted"],
+            font=(ff, 9),
+            padx=12, pady=5,
+            highlightthickness=1,
+            highlightbackground=C["border"],
+            highlightcolor=C["border"],
+        ).pack(fill="x", side="bottom")
 
-    def _section_label(self, parent, text) -> ttk.Label:
-        return ttk.Label(parent, text=text, style="Section.TLabel")
+    def _build_sidebar(self):
+        C = self.C
+        ff = C.get("font_family", "Microsoft YaHei UI")
+        sidebar_w = C.get("sidebar_width", 180)
+        self.sidebar = tk.Frame(self.root, bg=C["sidebar_bg"], width=sidebar_w)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar.pack_propagate(False)
+        tf = tk.Frame(self.sidebar, bg=C["sidebar_bg"])
+        tf.pack(fill="x", pady=(24, 0))
+        tk.Label(tf, text="SubjectDraw",
+                 bg=C["sidebar_bg"], fg=C["sidebar_fg"],
+                 font=(ff, 15, "bold"),
+                 anchor="w", padx=20).pack(fill="x")
+        tk.Label(tf, text="知识卡片排版工具",
+                 bg=C["sidebar_bg"], fg=C["muted"],
+                 font=(ff, 8),
+                 anchor="w", padx=20).pack(fill="x", pady=(2, 0))
+        tk.Frame(self.sidebar, bg=C["sidebar_bg"], height=24).pack()
+        tk.Frame(self.sidebar, bg=C["border"], height=1).pack(fill="x", padx=20)
+        nf = tk.Frame(self.sidebar, bg=C["sidebar_bg"])
+        nf.pack(fill="x", pady=(12, 0))
+        self.prompt_item = SidebarItem(nf, "  生成提示词",
+                                       lambda: self._switch_page("prompt"), C)
+        self.prompt_item.pack(fill="x")
+        self.preview_item = SidebarItem(nf, "  生成预览",
+                                        lambda: self._switch_page("preview"), C)
+        self.preview_item.pack(fill="x")
+        tk.Frame(self.sidebar, bg=C["sidebar_bg"]).pack(fill="both", expand=True)
+        tk.Frame(self.sidebar, bg=C["border"], height=1).pack(fill="x", padx=20)
+        sf = tk.Frame(self.sidebar, bg=C["sidebar_bg"], cursor="hand2")
+        sf.pack(fill="x", pady=(10, 24))
+        sl = tk.Label(sf, text="  设置",
+                      bg=C["sidebar_bg"], fg=C["sidebar_fg"],
+                      font=("Microsoft YaHei UI", 10),
+                      anchor="w", padx=20, pady=8)
+        sl.pack(fill="x")
+        def se(_): sf.configure(bg=C["sidebar_active"]); sl.configure(bg=C["sidebar_active"])
+        def slv(_): sf.configure(bg=C["sidebar_bg"]); sl.configure(bg=C["sidebar_bg"])
+        for w_ in (sf, sl):
+            w_.bind("<Enter>", se)
+            w_.bind("<Leave>", slv)
+            w_.bind("<Button-1>", lambda _: self.open_settings())
 
-    def _input(self, parent, variable, width=20, **kw) -> ttk.Entry:
-        e = ttk.Entry(parent, textvariable=variable, width=width, **kw)
-        return e
+    def _build_content_area(self):
+        self.content = tk.Frame(self.root, bg=self.C["bg"])
+        self.content.pack(side="left", fill="both", expand=True)
 
-    def _combo(self, parent, variable, values, width=18) -> ttk.Combobox:
+    def _switch_page(self, page):
+        if hasattr(self, "prompt_text") and self.prompt_text.winfo_exists():
+            self._prompt_text_content = self.prompt_text.get("1.0", "end").strip()
+        if hasattr(self, "json_text") and self.json_text.winfo_exists():
+            self._json_text_content = self.json_text.get("1.0", "end").strip()
+        for w_ in self.content.winfo_children():
+            w_.destroy()
+        self.current_page = page
+        self.prompt_item.set_active(page == "prompt")
+        self.preview_item.set_active(page == "preview")
+        if page == "prompt":
+            self._build_page_prompt()
+        else:
+            self._build_page_preview()
+
+    def _card(self, parent, **kw):
+        return tk.Frame(parent, bg=self.C["card"],
+                        highlightthickness=1,
+                        highlightbackground=self.C["border"],
+                        highlightcolor=self.C["border"], **kw)
+
+    def _lbl(self, parent, text):
+        ff = self.C.get("font_family", "Microsoft YaHei UI")
+        return tk.Label(parent, text=text,
+                        bg=self.C["card"], fg=self.C["text2"],
+                        font=(ff, 9))
+
+    def _input(self, parent, variable, width=20, **kw):
+        return ttk.Entry(parent, textvariable=variable, width=width, **kw)
+
+    def _combo(self, parent, variable, values, width=18):
         return ttk.Combobox(parent, textvariable=variable,
                             values=values, width=width, state="readonly")
 
-    # ── Tab A: Prompt ───────────────────────────────────
-    def _build_tab_a(self, parent):
-        outer = tk.Frame(parent, bg=C["bg"])
-        outer.pack(fill="both", expand=True, padx=12, pady=12)
+    def _build_page_prompt(self):
+        C = self.C
+        outer = tk.Frame(self.content, bg=C["bg"])
+        outer.pack(fill="both", expand=True, padx=20, pady=16)
+        c1 = self._card(outer)
+        c1.pack(fill="x")
+        i1 = tk.Frame(c1, bg=C["card"])
+        i1.pack(fill="x", padx=16, pady=14)
+        tk.Label(i1, text="基本信息", bg=C["card"], fg=C["primary"],
+                 font=("Microsoft YaHei UI", 11, "bold")).pack(anchor="w", pady=(0, 10))
+        g = tk.Frame(i1, bg=C["card"])
+        g.pack(fill="x")
+        g.columnconfigure(1, weight=1)
+        g.columnconfigure(3, weight=1)
+        avail = discover_formats() or [DEFAULT_FORMAT]
+        self._lbl(g, "格式").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._combo(g, self.format_a_var, avail, 16).grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=(0, 16), pady=(0, 8))
+        self._lbl(g, "学科").grid(row=0, column=2, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._combo(g, self.subject_var, PRESET_SUBJECTS, 16).grid(
+            row=1, column=2, columnspan=2, sticky="ew", pady=(0, 8))
+        self._lbl(g, "主题").grid(row=2, column=0, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._input(g, self.topic_var, 16).grid(row=3, column=0, columnspan=2, sticky="ew", padx=(0, 16), pady=(0, 4))
+        self._lbl(g, "提示词风格").grid(row=2, column=2, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._combo(g, self.prompt_style_var, PROMPT_STYLES, 16).grid(
+            row=3, column=2, columnspan=2, sticky="ew", pady=(0, 4))
 
-        card = self._card(outer)
-        card.pack(fill="x")
+        c2 = self._card(outer)
+        c2.pack(fill="x", pady=(10, 0))
+        i2 = tk.Frame(c2, bg=C["card"])
+        i2.pack(fill="x", padx=16, pady=12)
+        bf = tk.Frame(i2, bg=C["card"])
+        bf.pack(fill="x")
+        ttk.Button(bf, text="生成提示词", style="Primary.TButton",
+                   command=self.on_generate_prompt).pack(side="left", padx=(0, 8))
+        ttk.Button(bf, text="设置", style="Link.TButton",
+                   command=self.open_settings).pack(side="right")
 
-        inner = ttk.Frame(card, style="Card.TFrame", padding=16)
-        inner.pack(fill="x")
-
-        ttk.Label(inner, text="生成提示词", style="Title.TLabel").grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
-
-        available_formats = discover_formats() or [DEFAULT_FORMAT]
-
-        self._section_label(inner, "格式").grid(
-            row=1, column=0, sticky="w", pady=(0, 2))
-        self.format_a_var = tk.StringVar(
-            value=DEFAULT_FORMAT if DEFAULT_FORMAT in available_formats else available_formats[0])
-        self._combo(inner, self.format_a_var, available_formats, 22).grid(
-            row=2, column=0, columnspan=2, sticky="ew", pady=(0, 8))
-
-        self._section_label(inner, "学科").grid(
-            row=3, column=0, sticky="w", pady=(0, 2))
-        self.subject_var = tk.StringVar(value=PRESET_SUBJECTS[0])
-        self._combo(inner, self.subject_var, PRESET_SUBJECTS, 22).grid(
-            row=4, column=0, columnspan=2, sticky="ew", pady=(0, 8))
-
-        self._section_label(inner, "主题").grid(
-            row=5, column=0, sticky="w", pady=(0, 2))
-        self.topic_var = tk.StringVar()
-        topic_e = self._input(inner, self.topic_var, 24)
-        topic_e.insert(0, "如 辛亥革命、光合作用")
-        topic_e.config(foreground="gray")
-        topic_e.bind("<FocusIn>", self._on_topic_focus_in)
-        topic_e.bind("<FocusOut>", self._on_topic_focus_out)
-        topic_e.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(0, 4))
-
-        self._section_label(inner, "提示词风格").grid(
-            row=7, column=0, sticky="w", pady=(0, 2))
-        self.prompt_style_var = tk.StringVar(value="简约")
-        self._combo(inner, self.prompt_style_var, PROMPT_STYLES, 22).grid(
-            row=8, column=0, columnspan=2, sticky="ew", pady=(0, 4))
-
-        inner.columnconfigure(0, weight=1)
-
-        btn_frame = ttk.Frame(inner, style="Card.TFrame")
-        btn_frame.grid(row=9, column=0, columnspan=2, sticky="e", pady=(12, 0))
-
-        ttk.Button(btn_frame, text="AI 设置", style="Secondary.TButton",
-                   command=self.open_settings).pack(side="left", padx=(0, 8))
-        ttk.Button(btn_frame, text="AI 生成", style="Primary.TButton",
-                   command=self.on_ai_generate).pack(side="left", padx=(0, 8))
-        ttk.Button(btn_frame, text="AI 一键生成", style="Primary.TButton",
-                   command=self.on_ai_oneclick).pack(side="left", padx=(0, 8))
-        ttk.Button(btn_frame, text="生成提示词", style="Primary.TButton",
-                   command=self.on_generate_prompt).pack(side="left")
-
-        # Prompt text area
-        text_card = self._card(outer)
-        text_card.pack(fill="both", expand=True, pady=(10, 0))
-
-        text_inner = tk.Frame(text_card, bg=C["card"])
-        text_inner.pack(fill="both", expand=True, padx=12, pady=12)
-
+        c3 = self._card(outer)
+        c3.pack(fill="both", expand=True, pady=(10, 0))
+        i3 = tk.Frame(c3, bg=C["card"])
+        i3.pack(fill="both", expand=True, padx=12, pady=(8, 12))
         self.prompt_text = tk.Text(
-            text_inner, wrap="word", state="disabled",
+            i3, wrap="word", state="disabled",
             bg=C["input_bg"], fg=C["text"],
             font=("Consolas", 10), relief="flat",
             borderwidth=0, highlightthickness=1,
             highlightbackground=C["border"], highlightcolor=C["primary"],
             padx=8, pady=8)
-        scrollbar = ttk.Scrollbar(text_inner, command=self.prompt_text.yview)
-        self.prompt_text.configure(yscrollcommand=scrollbar.set)
+        sb = ttk.Scrollbar(i3, command=self.prompt_text.yview)
+        self.prompt_text.configure(yscrollcommand=sb.set)
         self.prompt_text.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        sb.pack(side="right", fill="y")
+        if self._prompt_text_content:
+            self.prompt_text.configure(state="normal")
+            self.prompt_text.insert("1.0", self._prompt_text_content)
+            self.prompt_text.configure(state="disabled")
 
-    def _on_topic_focus_in(self, event):
-        if self.topic_var.get() == "如 辛亥革命、光合作用":
-            self.topic_var.set("")
-            event.widget.config(foreground="black")
+    def _build_page_preview(self):
+        C = self.C
+        outer = tk.Frame(self.content, bg=C["bg"])
+        outer.pack(fill="both", expand=True, padx=20, pady=16)
+        c1 = self._card(outer)
+        c1.pack(fill="x")
+        i1 = tk.Frame(c1, bg=C["card"])
+        i1.pack(fill="x", padx=16, pady=12)
+        self._lbl(i1, "JSON 文件").pack(anchor="w", pady=(0, 4))
+        ff = tk.Frame(i1, bg=C["card"])
+        ff.pack(fill="x")
+        self.json_map = scan_json_files()
+        self.json_combo = ttk.Combobox(
+            ff, textvariable=self.json_choice_var,
+            values=list(self.json_map.keys()), width=30, state="readonly")
+        self.json_combo.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.json_combo.bind("<<ComboboxSelected>>", self.on_select_json)
+        ttk.Button(ff, text="浏览", style="Secondary.TButton",
+                   command=self.on_browse_json).pack(side="left")
 
-    def _on_topic_focus_out(self, event):
-        if not self.topic_var.get().strip():
-            self.topic_var.set("如 辛亥革命、光合作用")
-            event.widget.config(foreground="gray")
+        c2 = self._card(outer)
+        c2.pack(fill="x", pady=(10, 0))
+        i2 = tk.Frame(c2, bg=C["card"])
+        i2.pack(fill="x", padx=16, pady=12)
+        tk.Label(i2, text="样式设置", bg=C["card"], fg=C["primary"],
+                 font=("Microsoft YaHei UI", 11, "bold")).pack(anchor="w", pady=(0, 10))
+        g2 = tk.Frame(i2, bg=C["card"])
+        g2.pack(fill="x")
+        g2.columnconfigure(1, weight=1)
+        g2.columnconfigure(3, weight=1)
+        avail = discover_formats() or [DEFAULT_FORMAT]
+        self._lbl(g2, "格式").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._combo(g2, self.format_b_var, avail, 14).grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=(0, 16), pady=(0, 8))
+        self._lbl(g2, "色彩主题").grid(row=0, column=2, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._combo(g2, self.theme_var, list_themes(), 14).grid(
+            row=1, column=2, columnspan=2, sticky="ew", pady=(0, 8))
+        self._lbl(g2, "装饰风格").grid(row=2, column=0, sticky="w", padx=(0, 6), pady=(0, 2))
+        self._combo(g2, self.style_var, list_styles(), 14).grid(
+            row=3, column=0, columnspan=2, sticky="ew", padx=(0, 16), pady=(0, 4))
 
-    # ── Settings Dialog ────────────────────────────────
+        c4 = self._card(outer)
+        c4.pack(fill="both", expand=True, pady=(10, 0))
+        i4 = tk.Frame(c4, bg=C["card"])
+        i4.pack(fill="both", expand=True, padx=12, pady=(8, 12))
+        bf = tk.Frame(i4, bg=C["card"])
+        bf.pack(fill="x", pady=(0, 8))
+        ttk.Button(bf, text="生成预览", style="Primary.TButton",
+                   command=self.on_generate_preview).pack(side="right")
+        tk.Label(i4, text="在此粘贴 AI 生成的 JSON", bg=C["card"], fg=C["text2"],
+                 font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(0, 4))
+        self.json_text = tk.Text(
+            i4, wrap="none",
+            bg=C["input_bg"], fg=C["text"],
+            font=("Consolas", 10), relief="flat",
+            borderwidth=0, highlightthickness=1,
+            highlightbackground=C["border"], highlightcolor=C["primary"],
+            padx=8, pady=8)
+        js = ttk.Scrollbar(i4, command=self.json_text.yview)
+        self.json_text.configure(yscrollcommand=js.set)
+        self.json_text.pack(side="left", fill="both", expand=True)
+        js.pack(side="right", fill="y")
+        if self._json_text_content:
+            self.json_text.insert("1.0", self._json_text_content)
+
     def open_settings(self):
-        cfg = load_config()
+        gui_settings = load_gui_settings()
+        C = self.C
+        theme_name = C.get("_name", DEFAULT_GUI_THEME)
 
         dlg = tk.Toplevel(self.root)
-        dlg.title("API 设置")
-        dlg.geometry("480x340")
+        dlg.title("设置")
+        dlg.geometry("500x520")
         dlg.resizable(False, False)
         dlg.configure(bg=C["bg"])
         dlg.transient(self.root)
         dlg.grab_set()
+        dlg.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - 500) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - 520) // 2
+        dlg.geometry(f"+{x}+{y}")
 
-        card = self._card(dlg)
-        card.pack(fill="both", expand=True, padx=12, pady=12)
+        canvas = tk.Canvas(dlg, bg=C["bg"], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(dlg, orient="vertical", command=canvas.yview)
+        scrollable = tk.Frame(canvas, bg=C["bg"])
+        scrollable.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
-        inner = ttk.Frame(card, style="Card.TFrame", padding=16)
-        inner.pack(fill="x")
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        scrollable.bind("<MouseWheel>", _on_mousewheel)
 
-        ttk.Label(inner, text="API 设置", style="Title.TLabel").grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
+        def _on_canvas_configure(event):
+            canvas.itemconfig(canvas.find_all()[-1], width=event.width)
+        canvas.bind("<Configure>", _on_canvas_configure)
 
-        self._section_label(inner, "接口地址：").grid(
-            row=1, column=0, sticky="w", pady=3)
-        vars_ = {}
-        vars_["endpoint"] = tk.StringVar(value=str(cfg.get("endpoint", "")))
-        ttk.Entry(inner, textvariable=vars_["endpoint"], width=30).grid(
-            row=1, column=1, sticky="ew", pady=3)
+        tc = self._card(scrollable)
+        tc.pack(fill="x", padx=12, pady=(12, 0))
+        ti = tk.Frame(tc, bg=C["card"])
+        ti.pack(fill="x", padx=16, pady=14)
+        tk.Label(ti, text="界面设置", bg=C["card"], fg=C["primary"],
+                 font=("Microsoft YaHei UI", 11, "bold")).pack(anchor="w", pady=(0, 10))
+        tf = tk.Frame(ti, bg=C["card"])
+        tf.pack(fill="x")
+        self._lbl(tf, "界面主题").pack(anchor="w", pady=(0, 2))
+        gui_theme_var = tk.StringVar(value=gui_settings.get("gui_theme", DEFAULT_GUI_THEME))
+        ttk.Combobox(tf, textvariable=gui_theme_var,
+                     values=list_gui_themes(), width=20, state="readonly").pack(fill="x", pady=(0, 6))
+        tk.Label(ti, text="切换后立即生效",
+                 bg=C["card"], fg=C["muted"],
+                 font=("Microsoft YaHei UI", 8)).pack(anchor="w")
 
-        self._section_label(inner, "API Key：").grid(
-            row=2, column=0, sticky="w", pady=3)
-        vars_["key"] = tk.StringVar(value=str(cfg.get("key", "")))
-        ttk.Entry(inner, textvariable=vars_["key"], width=24).grid(
-            row=2, column=1, sticky="ew", pady=3)
+        lf = tk.Frame(ti, bg=C["card"])
+        lf.pack(fill="x", pady=(8, 0))
+        lf.columnconfigure(1, weight=1)
+        self._lbl(lf, "字体").grid(row=0, column=0, sticky="w", padx=(0, 6))
+        theme_def = THEMES.get(gui_settings.get("gui_theme", DEFAULT_GUI_THEME), {})
+        font_family_var = tk.StringVar(value=gui_settings.get("font_family", theme_def.get("font_family", "Microsoft YaHei UI")))
+        ttk.Combobox(lf, textvariable=font_family_var, width=18, state="readonly",
+                     values=["Microsoft YaHei UI", "SimHei", "SimSun", "KaiTi",
+                             "Arial", "Consolas", "Segoe UI", "PingFang SC"]).grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=(0, 16))
+        self._lbl(lf, "字号").grid(row=0, column=2, sticky="w", padx=(0, 6))
+        font_size_var = tk.StringVar(value=str(gui_settings.get("font_size", theme_def.get("font_size", 10))))
+        ttk.Combobox(lf, textvariable=font_size_var, width=6, state="readonly",
+                     values=["8", "9", "10", "11", "12", "14", "16"]).grid(
+            row=1, column=2, sticky="ew")
 
-        self._section_label(inner, "模型：").grid(
-            row=3, column=0, sticky="w", pady=3)
-        vars_["model"] = tk.StringVar(value=str(cfg.get("model", "")))
-        model_combo = ttk.Combobox(inner, textvariable=vars_["model"],
-                                   width=22, state="readonly")
+        sf = tk.Frame(ti, bg=C["card"])
+        sf.pack(fill="x", pady=(8, 0))
+        sf.columnconfigure(1, weight=1)
+        self._lbl(sf, "侧边栏宽度").grid(row=0, column=0, sticky="w", padx=(0, 6))
+        sidebar_width_var = tk.StringVar(value=str(gui_settings.get("sidebar_width", theme_def.get("sidebar_width", 180))))
+        ttk.Combobox(sf, textvariable=sidebar_width_var, width=6, state="readonly",
+                     values=["140", "160", "180", "200", "220", "240"]).grid(
+            row=1, column=0, sticky="ew", padx=(0, 16))
+        self._lbl(sf, "卡片圆角").grid(row=0, column=2, sticky="w", padx=(0, 6))
+        card_radius_var = tk.StringVar(value=str(gui_settings.get("card_radius", theme_def.get("card_radius", 8))))
+        ttk.Combobox(sf, textvariable=card_radius_var, width=6, state="readonly",
+                     values=["0", "4", "6", "8", "10", "12", "16"]).grid(
+            row=1, column=2, sticky="ew")
 
-        openai_models = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1"]
-        model_combo["values"] = openai_models
-        model_combo.grid(row=3, column=1, sticky="ew", pady=3)
+        custom_colors = gui_settings.get("custom_colors", {})
+        color_vars = {}
 
-        def _fetch_ollama_async():
-            import urllib.request
-            try:
-                req = urllib.request.Request("http://localhost:11434/api/tags")
-                with urllib.request.urlopen(req, timeout=2) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                names = [m["name"] for m in data.get("models", [])]
-                if names:
-                    def _update():
-                        model_combo["values"] = names + ["---"] + openai_models
-                        if not vars_["model"].get() or vars_["model"].get() not in names:
-                            vars_["model"].set(names[0])
-                    self.root.after(0, _update)
-            except Exception:
-                pass
+        cc_card = self._card(scrollable)
+        cc_card.pack(fill="x", padx=12, pady=(10, 0))
+        cc_inner = tk.Frame(cc_card, bg=C["card"])
+        cc_inner.pack(fill="x", padx=16, pady=14)
+        tk.Label(cc_inner, text="自定义颜色", bg=C["card"], fg=C["primary"],
+                 font=("Microsoft YaHei UI", 11, "bold")).pack(anchor="w", pady=(0, 2))
+        tk.Label(cc_inner, text="留空使用主题默认色，输入 #RRGGBB 格式",
+                 bg=C["card"], fg=C["muted"],
+                 font=("Microsoft YaHei UI", 8)).pack(anchor="w", pady=(0, 10))
 
-        threading.Thread(target=_fetch_ollama_async, daemon=True).start()
+        for group_name, fields in COLOR_GROUPS:
+            tk.Label(cc_inner, text=group_name, bg=C["card"], fg=C["text2"],
+                     font=("Microsoft YaHei UI", 9, "bold")).pack(anchor="w", pady=(8, 2))
+            row_frame = tk.Frame(cc_inner, bg=C["card"])
+            row_frame.pack(fill="x")
+            for i, (label_text, key) in enumerate(fields):
+                r = i // 2
+                c = (i % 2) * 3
+                current_val = custom_colors.get(key, "")
+                default_val = THEMES.get(theme_name, {}).get(key, "#FFFFFF")
+                var = tk.StringVar(value=current_val)
+                color_vars[key] = var
 
-        self._section_label(inner, "Temperature：").grid(
-            row=4, column=0, sticky="w", pady=3)
-        vars_["temperature"] = tk.StringVar(value=str(cfg.get("temperature", 0.3)))
-        ttk.Entry(inner, textvariable=vars_["temperature"], width=24).grid(
-            row=4, column=1, sticky="ew", pady=3)
+                preview = tk.Frame(row_frame, bg=current_val or default_val,
+                                   width=16, height=16,
+                                   highlightthickness=1,
+                                   highlightbackground=C["border"])
+                preview.grid(row=r, column=c, padx=(0, 3), pady=2, sticky="w")
 
-        self._section_label(inner, "Max Tokens：").grid(
-            row=5, column=0, sticky="w", pady=3)
-        vars_["max_tokens"] = tk.StringVar(value=str(cfg.get("max_tokens", 4096)))
-        ttk.Entry(inner, textvariable=vars_["max_tokens"], width=24).grid(
-            row=5, column=1, sticky="ew", pady=3)
+                tk.Label(row_frame, text=label_text, bg=C["card"], fg=C["text2"],
+                         font=("Microsoft YaHei UI", 9)).grid(
+                    row=r, column=c+1, sticky="w", padx=(0, 3))
 
-        inner.columnconfigure(1, weight=1)
+                entry = ttk.Entry(row_frame, textvariable=var, width=9)
+                entry.grid(row=r, column=c+2, sticky="w", padx=(0, 12), pady=2)
 
-        preset_frame = ttk.Frame(inner, style="Card.TFrame")
-        preset_frame.grid(row=6, column=0, columnspan=2, sticky="w", pady=(8, 0))
-        ttk.Label(preset_frame, text="快捷填充：", style="Section.TLabel").pack(side="left")
+                def make_update(p, k, v, tn=theme_name):
+                    def update(*_):
+                        val = v.get().strip()
+                        default = THEMES.get(tn, {}).get(k, "#FFFFFF")
+                        try:
+                            p.configure(bg=val if val else default)
+                        except Exception:
+                            pass
+                    return update
+                var.trace_add("write", make_update(preview, key, var))
 
-        def fill_ollama():
-            vars_["endpoint"].set("http://localhost:11434/v1/chat/completions")
-            vars_["key"].set("ollama")
-            _fetch_ollama_async()
+        def reset_colors():
+            for key, var in color_vars.items():
+                var.set("")
 
-        def fill_openai():
-            vars_["endpoint"].set("https://api.openai.com/v1/chat/completions")
-            vars_["key"].set("")
-            model_combo["values"] = openai_models
-            vars_["model"].set("gpt-4o-mini")
-
-        ttk.Button(preset_frame, text="Ollama", style="Secondary.TButton",
-                   command=fill_ollama).pack(side="left", padx=(0, 6))
-        ttk.Button(preset_frame, text="OpenAI", style="Secondary.TButton",
-                   command=fill_openai).pack(side="left")
-
-        btn_frame = ttk.Frame(inner, style="Card.TFrame")
-        btn_frame.grid(row=7, column=0, columnspan=2, sticky="e", pady=(12, 0))
-
-        status_label = ttk.Label(inner, text="", style="Card.TLabel")
-        status_label.grid(row=8, column=0, columnspan=2, sticky="w", pady=(6, 0))
-
-        def on_test():
-            status_label.config(text="测试连接中...", foreground=C["text2"])
-            test_cfg = dict(DEFAULT_CONFIG)
-            for k, v in vars_.items():
-                test_cfg[k] = v.get()
-            try:
-                test_cfg["temperature"] = float(test_cfg["temperature"])
-                test_cfg["max_tokens"] = int(test_cfg["max_tokens"])
-            except ValueError:
-                pass
-
-            def _do_test():
-                try:
-                    test_connection(test_cfg)
-                    self.root.after(0, lambda: status_label.config(
-                        text="连接成功", foreground=C["success"]))
-                except Exception as e:
-                    self.root.after(0, lambda: status_label.config(
-                        text=f"失败: {e}", foreground=C["error"]))
-
-            threading.Thread(target=_do_test, daemon=True).start()
+        tk.Button(cc_inner, text="恢复默认颜色", bg=C["card"], fg=C["primary"],
+                  font=("Microsoft YaHei UI", 9), bd=0, cursor="hand2",
+                  command=reset_colors).pack(anchor="w", pady=(8, 0))
 
         def on_save():
-            new_cfg = dict(DEFAULT_CONFIG)
-            for k, v in vars_.items():
-                val = v.get()
-                if k == "temperature":
-                    try:
-                        val = float(val)
-                    except ValueError:
-                        val = 0.3
-                elif k == "max_tokens":
-                    try:
-                        val = int(val)
-                    except ValueError:
-                        val = 4096
-                new_cfg[k] = val
-            save_config(new_cfg)
-            status_label.config(text="已保存", foreground=C["success"])
-            dlg.after(600, dlg.destroy)
+            custom = {}
+            for key, var in color_vars.items():
+                val = var.get().strip()
+                if val:
+                    custom[key] = val
+            settings = {"gui_theme": gui_theme_var.get()}
+            if custom:
+                settings["custom_colors"] = custom
+            settings["font_family"] = font_family_var.get()
+            settings["font_size"] = int(font_size_var.get())
+            settings["sidebar_width"] = int(sidebar_width_var.get())
+            settings["card_radius"] = int(card_radius_var.get())
+            save_gui_settings(settings)
+            dlg.destroy()
+            self._rebuild_gui()
 
-        ttk.Button(btn_frame, text="测试连接", style="Secondary.TButton",
-                   command=on_test).pack(side="left", padx=(0, 8))
-        ttk.Button(btn_frame, text="保存", style="Primary.TButton",
+        bf2 = tk.Frame(scrollable, bg=C["bg"])
+        bf2.pack(fill="x", padx=12, pady=(12, 16))
+        ttk.Button(bf2, text="保存", style="Primary.TButton",
                    command=on_save).pack(side="left")
-
-    # ── AI Generate ────────────────────────────────────
-    def on_ai_generate(self):
-        subject = self.subject_var.get().strip()
-        topic = self.topic_var.get().strip()
-        fmt = self.format_a_var.get().strip()
-        style = self.prompt_style_var.get().strip()
-
-        if not subject or not topic or topic == "如 辛亥革命、光合作用":
-            self.status_var.set("请填写学科和主题")
-            return
-
-        cfg = load_config()
-        if not cfg.get("key"):
-            self.status_var.set("请先在 API 设置中配置 Key")
-            self.open_settings()
-            return
-
-        self.status_var.set("AI 生成中，请稍候...")
-
-        def _do_generate():
-            try:
-                data = generate_json(subject, topic, fmt, cfg, style=style)
-            except Exception as e:
-                self.root.after(0, lambda: self.status_var.set(f"AI 生成失败: {e}"))
-                return
-
-            json_str = json.dumps(data, ensure_ascii=False, indent=2)
-
-            def _fill():
-                self.prompt_text.configure(state="normal")
-                self.prompt_text.delete("1.0", "end")
-                self.prompt_text.insert("1.0", json_str)
-                self.prompt_text.configure(state="disabled")
-
-                self.json_text.delete("1.0", "end")
-                self.json_text.insert("1.0", json_str)
-
-                self.notebook.select(1)
-                self.status_var.set(f"AI 已生成 {subject}/{topic}，已填入编辑器")
-
-            self.root.after(0, _fill)
-
-        threading.Thread(target=_do_generate, daemon=True).start()
-
-    def on_ai_oneclick(self):
-        subject = self.subject_var.get().strip()
-        topic = self.topic_var.get().strip()
-        fmt = self.format_a_var.get().strip()
-        style = self.prompt_style_var.get().strip()
-
-        if not subject or not topic or topic == "如 辛亥革命、光合作用":
-            self.status_var.set("请填写学科和主题")
-            return
-
-        cfg = load_config()
-        if not cfg.get("key"):
-            self.status_var.set("请先在 API 设置中配置 Key")
-            self.open_settings()
-            return
-
-        self.status_var.set("AI 一键生成中，请稍候...")
-
-        def _do():
-            try:
-                data = generate_json(subject, topic, fmt, cfg, style=style)
-            except Exception as e:
-                self.root.after(0, lambda: self.status_var.set(f"AI 生成失败: {e}"))
-                return
-
-            json_str = json.dumps(data, ensure_ascii=False, indent=2)
-
-            try:
-                from config import OUTPUT_DIR
-                import webbrowser
-                fmt_opts = dict(
-                    theme=self.theme_var.get().strip() if hasattr(self, "theme_var") else DEFAULT_THEME,
-                    style=self.style_var.get().strip() if hasattr(self, "style_var") else DEFAULT_STYLE,
-                    student_name=getattr(self, "name_var", tk.StringVar()).get().strip(),
-                    cls=getattr(self, "cls_var", tk.StringVar()).get().strip(),
-                    student_id=getattr(self, "sid_var", tk.StringVar()).get().strip(),
-                    date=getattr(self, "date_var", tk.StringVar()).get().strip(),
-                    watermark=getattr(self, "watermark_var", tk.StringVar()).get().strip(),
-                )
-                html = render_html(data, fmt=fmt, **fmt_opts)
-                os.makedirs(OUTPUT_DIR, exist_ok=True)
-                center = data.get("center", "output")
-                subj = data.get("subject", "")
-                filename = f"{subj}_{center}.html" if subj else f"{center}.html"
-                out_path = os.path.join(OUTPUT_DIR, filename)
-                with open(out_path, "w", encoding="utf-8") as f:
-                    f.write(html)
-                webbrowser.open("file:///" + os.path.abspath(out_path).replace("\\", "/"))
-            except Exception as e:
-                self.root.after(0, lambda: self.status_var.set(f"渲染失败: {e}"))
-                return
-
-            def _done():
-                self.prompt_text.configure(state="normal")
-                self.prompt_text.delete("1.0", "end")
-                self.prompt_text.insert("1.0", json_str)
-                self.prompt_text.configure(state="disabled")
-                self.json_text.delete("1.0", "end")
-                self.json_text.insert("1.0", json_str)
-                self.status_var.set(f"已生成 {subject}/{topic}，浏览器已打开预览")
-
-            self.root.after(0, _done)
-
-        threading.Thread(target=_do, daemon=True).start()
 
     def on_generate_prompt(self):
         subject = self.subject_var.get().strip()
         topic = self.topic_var.get().strip()
         fmt = self.format_a_var.get().strip()
         style = self.prompt_style_var.get().strip()
-
-        if not subject or not topic or topic == "如 辛亥革命、光合作用":
+        if not subject or not topic:
             self.status_var.set("请填写学科和主题")
             return
-
         try:
             text = load_prompt(fmt, subject, topic, style=style)
         except Exception as e:
             self.status_var.set(f"错误: {e}")
             return
-
         self.prompt_text.configure(state="normal")
         self.prompt_text.delete("1.0", "end")
         self.prompt_text.insert("1.0", text)
         self.prompt_text.configure(state="disabled")
-
+        self._prompt_text_content = text
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
-        self.status_var.set("已生成提示词，已复制到剪贴板")
-
-    # ── Tab B: Preview ──────────────────────────────────
-    def _build_tab_b(self, parent):
-        outer = tk.Frame(parent, bg=C["bg"])
-        outer.pack(fill="both", expand=True, padx=12, pady=12)
-
-        # ── Top card: file selection + settings ─────────
-        card = self._card(outer)
-        card.pack(fill="x")
-
-        inner = ttk.Frame(card, style="Card.TFrame", padding=16)
-        inner.pack(fill="x")
-
-        ttk.Label(inner, text="生成预览", style="Title.TLabel").grid(
-            row=0, column=0, columnspan=4, sticky="w", pady=(0, 12))
-
-        available_formats = discover_formats() or [DEFAULT_FORMAT]
-
-        # Row: format
-        self._section_label(inner, "格式").grid(
-            row=1, column=0, sticky="w", pady=(0, 2))
-        self.format_b_var = tk.StringVar(
-            value=DEFAULT_FORMAT if DEFAULT_FORMAT in available_formats else available_formats[0])
-        self._combo(inner, self.format_b_var, available_formats, 18).grid(
-            row=2, column=0, columnspan=2, sticky="ew", padx=(0, 12), pady=(0, 10))
-
-        # Row: JSON file
-        self._section_label(inner, "JSON 文件").grid(
-            row=1, column=2, sticky="w", pady=(0, 2))
-        self.json_map = scan_json_files()
-        self.json_choice_var = tk.StringVar()
-        self.json_combo = ttk.Combobox(
-            inner, textvariable=self.json_choice_var,
-            values=list(self.json_map.keys()), width=18, state="readonly")
-        self.json_combo.grid(row=2, column=2, sticky="ew", padx=(0, 4), pady=(0, 10))
-        self.json_combo.bind("<<ComboboxSelected>>", self.on_select_json)
-
-        browse_btn = ttk.Button(inner, text="浏览", style="Secondary.TButton",
-                                command=self.on_browse_json)
-        browse_btn.grid(row=2, column=3, sticky="w", padx=(0, 8), pady=(0, 10))
-
-        preview_btn = ttk.Button(inner, text="生成预览", style="Primary.TButton",
-                                 command=self.on_generate_preview)
-        preview_btn.grid(row=2, column=4, sticky="w", pady=(0, 10))
-
-        inner.columnconfigure(0, weight=0)
-        inner.columnconfigure(2, weight=1)
-
-        # ── Settings panel ─────────────────────────────
-        settings = ttk.LabelFrame(inner, text=" 页面设置 ", padding=10)
-        settings.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(4, 0))
-        settings.columnconfigure(1, weight=1)
-        settings.columnconfigure(3, weight=1)
-
-        fields = [
-            (0, "姓名：", "name_var"),
-            (0, "班级：", "cls_var", 2),
-            (1, "学号：", "sid_var"),
-            (1, "日期：", "date_var", 2),
-        ]
-        for item in fields:
-            row, label, var_name = item[0], item[1], item[2]
-            col = item[3] if len(item) > 3 else 0
-            self._section_label(settings, label).grid(
-                row=row, column=col, sticky="w", padx=(0, 4), pady=3)
-            setattr(self, var_name, tk.StringVar())
-            self._input(settings, getattr(self, var_name), 14).grid(
-                row=row, column=col + 1, sticky="ew", padx=(0, 12), pady=3)
-
-        self._section_label(settings, "色彩主题：").grid(
-            row=2, column=0, sticky="w", padx=(0, 4), pady=3)
-        self.theme_var = tk.StringVar(value=DEFAULT_THEME)
-        self._combo(settings, self.theme_var, list_themes(), 14).grid(
-            row=2, column=1, sticky="ew", padx=(0, 12), pady=3)
-
-        self._section_label(settings, "装饰风格：").grid(
-            row=2, column=2, sticky="w", padx=(0, 4), pady=3)
-        self.style_var = tk.StringVar(value=DEFAULT_STYLE)
-        self._combo(settings, self.style_var, list_styles(), 14).grid(
-            row=2, column=3, sticky="ew", pady=3)
-
-        self._section_label(settings, "水印文字：").grid(
-            row=3, column=0, sticky="w", padx=(0, 4), pady=3)
-        self.watermark_var = tk.StringVar()
-        self._input(settings, self.watermark_var, 14).grid(
-            row=3, column=1, sticky="ew", padx=(0, 12), pady=3)
-
-        # ── JSON editor card ───────────────────────────
-        edit_card = self._card(outer)
-        edit_card.pack(fill="both", expand=True, pady=(10, 0))
-
-        edit_inner = tk.Frame(edit_card, bg=C["card"])
-        edit_inner.pack(fill="both", expand=True, padx=12, pady=(8, 12))
-
-        ttk.Label(edit_inner, text="JSON 内容（可编辑）",
-                  style="Section.TLabel").pack(anchor="w", pady=(0, 4))
-
-        text_container = tk.Frame(edit_inner, bg=C["card"])
-        text_container.pack(fill="both", expand=True)
-
-        self.json_text = tk.Text(
-            text_container, wrap="none",
-            bg=C["input_bg"], fg=C["text"],
-            font=("Consolas", 10), relief="flat",
-            borderwidth=0, highlightthickness=1,
-            highlightbackground=C["border"], highlightcolor=C["primary"],
-            padx=8, pady=8)
-        json_scroll = ttk.Scrollbar(text_container, command=self.json_text.yview)
-        self.json_text.configure(yscrollcommand=json_scroll.set)
-        self.json_text.pack(side="left", fill="both", expand=True)
-        json_scroll.pack(side="right", fill="y")
+        self.status_var.set("提示词已复制，粘贴到 AI 聊天中，再点「粘贴 JSON」")
 
     def on_select_json(self, event=None):
         label = self.json_choice_var.get()
@@ -676,9 +644,9 @@ class SubjectDrawGUI:
         except Exception as e:
             self.status_var.set(f"错误: 无法读取文件 ({e})")
             return
-
         self.json_text.delete("1.0", "end")
         self.json_text.insert("1.0", content)
+        self._json_text_content = content
         self.status_var.set(f"已加载: {os.path.basename(path)}")
 
     def on_generate_preview(self):
@@ -686,39 +654,29 @@ class SubjectDrawGUI:
         if not raw:
             self.status_var.set("错误: JSON 内容为空")
             return
-
         try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as e:
+            decoder = json.JSONDecoder()
+            data, _ = decoder.raw_decode(raw)
+        except (json.JSONDecodeError, ValueError) as e:
             self.status_var.set(f"错误: JSON 格式无效 ({e})")
             messagebox.showerror("JSON 解析失败", str(e))
             return
-
         try:
             from config import OUTPUT_DIR
             import webbrowser
-
             fmt = self.format_b_var.get().strip() or DEFAULT_FORMAT
             fmt_opts = dict(
                 theme=self.theme_var.get().strip() or DEFAULT_THEME,
                 style=self.style_var.get().strip() or DEFAULT_STYLE,
-                student_name=self.name_var.get().strip(),
-                cls=self.cls_var.get().strip(),
-                student_id=self.sid_var.get().strip(),
-                date=self.date_var.get().strip(),
-                watermark=self.watermark_var.get().strip(),
             )
             html = render_html(data, fmt=fmt, **fmt_opts)
             os.makedirs(OUTPUT_DIR, exist_ok=True)
-
             center = data.get("center", "output")
             subject = data.get("subject", "")
             filename = f"{subject}_{center}.html" if subject else f"{center}.html"
             out_path = os.path.join(OUTPUT_DIR, filename)
-
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(html)
-
             webbrowser.open("file:///" + os.path.abspath(out_path).replace("\\", "/"))
             self.status_var.set(f"已生成: {filename}")
         except Exception as e:

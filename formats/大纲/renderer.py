@@ -2,7 +2,7 @@ from core.theme import theme_css_vars
 from core.decorations import (
     divider_html, title_ornament, bullet_svg,
     shared_css, decoration_css, student_info_html, footer_html,
-    knowledge_panel_html, knowledge_panel_css,
+    knowledge_panel_html, knowledge_panel_css, base_page_css,
 )
 
 
@@ -57,37 +57,14 @@ def render_html(data, **fmt_opts):
 {shared_css()}
 {decoration_css(style)}
 {knowledge_panel_css()}
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-html, body {{ background:#f5f5f5; font-family:"KaiTi","楷体","STKaiti","Microsoft YaHei","SimSun",serif; color:var(--text, #222); }}
-body {{ display:flex; justify-content:center; padding:24px 0; }}
-.page {{
-    width:794px;
-    min-height:auto;
-    background:var(--bg, #fff);
-    position:relative;
-    box-shadow:0 4px 20px rgba(0,0,0,0.08);
-    padding:40px 55px;
-}}
-.header {{
-    text-align:center;
-    margin-bottom:24px;
-}}
-.header h1 {{
-    font-size:28px;
-    letter-spacing:4px;
-    margin-bottom:8px;
-    color:var(--primary, #222);
-}}
-.header .subtitle {{
-    font-size:14px;
-    color:var(--muted, #666);
-}}
-.divider-wrap {{
-    margin: 10px auto;
-    max-width:500px;
+{base_page_css()}
+.outline-grid {{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px 32px;
+    margin-bottom:20px;
 }}
 .item {{
-    margin-bottom:18px;
     padding-left:18px;
     border-left:3px solid var(--accent, #aaa);
 }}
@@ -144,7 +121,9 @@ body {{ display:flex; justify-content:center; padding:24px 0; }}
         <div class="subtitle">{subtitle}</div>
         <div class="divider-wrap">{divider}</div>
     </div>
-    {items_html}
+    <div class="outline-grid">
+        {items_html}
+    </div>
     {kp_html}
     {footer}
 </div>

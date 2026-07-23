@@ -10,12 +10,13 @@ from core.runner import run_mode_a, run_mode_b
 from config import DEFAULT_FORMAT, DEFAULT_THEME, DEFAULT_STYLE, OUTPUT_DIR
 from core.theme import list_themes
 from core.decorations import list_styles
+from core.format_manager import discover_formats
 from core.prompts import PROMPT_STYLES
 
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        prog="SmartPrint",
+        prog="SubjectDraw",
         description="知识卡片排版工具",
     )
     parser.add_argument("--subject", help="学科名称，如 历史 / 地理")
@@ -36,7 +37,7 @@ def build_parser():
     parser.add_argument("--watermark", default="", help="水印文字")
     parser.add_argument("--prompt-style", dest="prompt_style", default=None,
                         choices=PROMPT_STYLES,
-                        help="提示词风格（简约/严谨/丰富/逻辑）")
+                        help="提示词风格（" + "/".join(PROMPT_STYLES) + "）")
     parser.add_argument("--ai", action="store_true",
                         help="使用 AI 生成 JSON（需要先配置 API）")
     parser.add_argument("--gui", action="store_true", help="启动图形界面")

@@ -14,7 +14,9 @@ TEMPLATES_DIR = os.path.join(BUNDLE_DIR, "templates")
 FORMATS_DIR = os.path.join(BUNDLE_DIR, "formats")
 
 API_CONFIG_PATH = os.path.join(BASE_DIR, "api_config.json")
+GUI_SETTINGS_PATH = os.path.join(BASE_DIR, "gui_settings.json")
 
 DEFAULT_FORMAT = "思维导图"
 DEFAULT_THEME = "素雅灰"
 DEFAULT_STYLE = "简约几何"
+DEFAULT_GUI_THEME = "浅色极简"

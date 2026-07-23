@@ -23,6 +23,9 @@
   ],
   "marginalia": [
     "课本注释或拓展知识，如背景补充、易混辨析等"
+  ],
+  "reference_images": [
+    {"url": "https://example.com/image.jpg", "caption": "图片说明"}
   ]
 }
 
@@ -34,5 +37,6 @@
 - key_figures：课本提到的重要人物，3～5个
 - marginalia：课本旁注/小字/资料卡内容，3～5条
 - 时间线节点8～12个，每个事件描述完整
+- reference_images：搜索网上与主题相关的参考图片，2～6张，URL 必须是可直接访问的图片链接，优先百科类网站
 - 内容准确，严格依照课本原文表述
 - 只输出 JSON，不要解释

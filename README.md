@@ -1,4 +1,4 @@
-# SmartPrint
+# SubjectDraw
 
 AI 驱动的知识卡片排版工具 — 交作业神器
 
@@ -51,7 +51,7 @@ formats/你的格式/
 ## 项目结构
 
 ```
-SmartPrint/
+SubjectDraw/
 ├── app.py                  # CLI 入口
 ├── gui.py                  # GUI 入口
 ├── config.py               # 全局配置

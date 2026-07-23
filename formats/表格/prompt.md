@@ -21,6 +21,9 @@
   ],
   "marginalia": [
     "课本补充说明、知识拓展、易混辨析等"
+  ],
+  "reference_images": [
+    {"url": "https://example.com/image.jpg", "caption": "图片说明"}
   ]
 }
 
@@ -31,6 +34,7 @@
 - key_concepts：课本重点术语和定义，6～8个
 - key_figures：涉及的重要人物（科学家/历史人物等），3～5个
 - marginalia：课本边栏、知识卡片、小字内容，4～6条
+- reference_images：搜索网上与主题相关的参考图片，2～6张
 - 时间线按需填写（理科可省略）
 - 内容准确，严格依照课本表述
 - 只输出 JSON，不要解释

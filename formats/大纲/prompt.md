@@ -21,6 +21,9 @@
   ],
   "marginalia": [
     "课本旁注、知识拓展、易混辨析等补充内容"
+  ],
+  "reference_images": [
+    {"url": "https://example.com/image.jpg", "caption": "图片说明"}
   ]
 }
 
@@ -32,6 +35,7 @@
 - key_concepts：本单元核心术语和定义，6～10个
 - key_figures：涉及的重要人物，3～5个
 - marginalia：课本边栏、小字、注释内容，4～6条
+- reference_images：搜索网上与主题相关的参考图片，2～6张
 - 时间线按需填写
 - 内容准确，严格依照课本表述
 - 只输出 JSON，不要解释

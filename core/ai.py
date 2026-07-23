@@ -105,17 +105,21 @@ def _parse_json(text):
     if m:
         text = m.group(1).strip()
 
+    decoder = json.JSONDecoder()
+
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
+        result, _ = decoder.raw_decode(text)
+        return result
+    except (json.JSONDecodeError, ValueError):
         pass
 
     start = text.find("{")
     end = text.rfind("}")
     if start != -1 and end > start:
         try:
-            return json.loads(text[start:end + 1])
-        except json.JSONDecodeError:
+            result, _ = decoder.raw_decode(text[start:])
+            return result
+        except (json.JSONDecodeError, ValueError):
             pass
 
     raise ValueError(f"无法解析 JSON:\n{text[:500]}")

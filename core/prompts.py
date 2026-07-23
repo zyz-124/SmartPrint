@@ -8,10 +8,17 @@ PROMPT_STYLES = ["简约", "严谨", "丰富", "逻辑", "要点清单"]
 STRUCTURE_RULES = """\
 【输出规则】
 - 只输出合法JSON，不要任何解释、标题或markdown代码块
-- 所有字段必须齐全，不允许添加新字段
+- 所有字段必须齐全，缺少数据时填空列表 []，不允许省略字段
 - 中文内容，学科专业术语保持准确
 - 每个 point 是完整的一句话（15-50字）
-- 不要出现"考试重点""必考"等与考试相关的词语"""
+- 不要出现"考试重点""必考"等与考试相关的词语
+
+【参考图片 reference_images】
+- 从网上搜索与主题相关的参考图片，URL 必须是可直接访问的图片链接
+- 优先使用维基百科、百度百科、百科知识类网站的图片
+- 每张图片附带 caption 说明，中文
+- 图片数量 2-6 张，覆盖不同知识点
+- 找不到合适的图片时填空列表 []"""
 
 # ═══════════════════════════════════════════════════════
 #   四种风格的写作指令
@@ -51,52 +58,133 @@ STYLE_INSTRUCTIONS = {
 }
 
 # ═══════════════════════════════════════════════════════
-#   四种格式的 JSON 结构模板
+#   四种格式的完整 JSON schema（与 renderer 期望字段对齐）
 # ═══════════════════════════════════════════════════════
+#
+#   所有格式共享的顶层字段：
+#     subject    — 学科名称（字符串）
+#     center     — 主题名称（字符串）
+#     subtitle   — 课本版本信息（字符串）
+#     key_concepts  — 核心概念列表（可空）
+#     key_figures   — 关键人物列表（可空）
+#     marginalia    — 知识拓展列表（可空）
+#
+#   各格式特有字段见下方 schema。
+# ═══════════════════════════════════════════════════════
+
 FORMAT_SCHEMAS = {
     "思维导图": """\
-JSON结构：
+JSON结构（严格按此格式输出，所有字段必须存在）：
 {
+  "subject": "学科名",
+  "center": "主题名",
+  "subtitle": "课本版本信息，如 人教版八年级上册 第8课",
   "branches": [
     {
       "title": "分支标题",
-      "points": ["要点1", "要点2"]
+      "points": ["要点1（完整一句话）", "要点2"]
     }
+  ],
+  "timeline": [
+    { "date": "年份或时期", "event": "事件描述" }
+  ],
+  "key_concepts": [
+    { "term": "核心概念", "explain": "准确定义，20字左右" }
+  ],
+  "key_figures": [
+    { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献" }
+  ],
+  "marginalia": ["补充说明或知识拓展"],
+  "reference_images": [
+    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
   ]
-}""",
+}
+说明：branches 3-5个，每个2-4个要点；timeline 按时间顺序（理科可用 []）；key_concepts 3-6个；key_figures 2-4个；marginalia 2-4条；reference_images 2-6张，搜索网上相关图片 URL。""",
 
     "表格": """\
-JSON结构：
+JSON结构（严格按此格式输出，所有字段必须存在）：
 {
+  "subject": "学科名",
+  "center": "主题名",
+  "subtitle": "课本版本信息，如 人教版必修一 第3章",
   "branches": [
     {
       "title": "类别/维度",
       "points": ["条目1：说明", "条目2：说明"]
     }
-  ]
-}""",
-
-    "时间轴": """\
-JSON结构：
-{
-  "timeline": [
-    { "date": "时间点或时期", "event": "发生了什么" }
-  ]
-}
-注意：按时间先后排列，至少5个节点。""",
-
-    "大纲": """\
-JSON结构：
-{
+  ],
+  "timeline": [],
   "key_concepts": [
-    { "term": "概念名称", "explain": "准确定义或解释" }
+    { "term": "核心术语", "explain": "准确定义" }
   ],
   "key_figures": [
-    { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献或成就" }
+    { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献" }
   ],
-  "marginalia": ["补充说明或备注"]
-}""",
+  "marginalia": ["补充说明或知识拓展"],
+  "reference_images": [
+    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
+  ]
 }
+说明：branches 4-8个，每个3-5个要点；key_concepts 3-6个；key_figures 若无相关人物填 []；marginalia 2-4条；reference_images 2-6张。""",
+
+    "时间轴": """\
+JSON结构（严格按此格式输出，所有字段必须存在）：
+{
+  "subject": "学科名",
+  "center": "主题名",
+  "subtitle": "课本版本信息，如 人教版七年级下册 第5课",
+  "branches": [
+    {
+      "title": "阶段标题（如：起义背景、斗争过程）",
+      "points": ["该阶段概述1", "该阶段概述2"]
+    }
+  ],
+  "timeline": [
+    { "date": "具体时间（年/月/日）", "event": "事件完整描述，含人物地点意义" }
+  ],
+  "key_concepts": [
+    { "term": "核心概念", "explain": "准确定义" }
+  ],
+  "key_figures": [
+    { "name": "人物姓名", "title": "身份", "contribution": "主要事迹" }
+  ],
+  "marginalia": ["补充说明或背景知识"],
+  "reference_images": [
+    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
+  ]
+}
+说明：timeline 至少8个节点，按时间先后排列；branches 3-5个阶段；key_concepts 3-5个；key_figures 3-5个；marginalia 2-4条；reference_images 2-6张。""",
+
+    "大纲": """\
+JSON结构（严格按此格式输出，所有字段必须存在）：
+{
+  "subject": "学科名",
+  "center": "主题名",
+  "subtitle": "课本版本信息，如 人教版必修二 第4单元",
+  "branches": [
+    {
+      "title": "一级标题（课本小节名）",
+      "points": [
+        "二级要点：该节第一个重要知识点的完整描述",
+        "二级要点：第二个知识点"
+      ]
+    }
+  ],
+  "timeline": [],
+  "key_concepts": [
+    { "term": "核心术语", "explain": "课本定义或标准解释" }
+  ],
+  "key_figures": [
+    { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献" }
+  ],
+  "marginalia": ["课本旁注、知识拓展、易混辨析等补充内容"],
+  "reference_images": [
+    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
+  ]
+}
+说明：branches 4-8个，每个3-5个要点；key_concepts 4-8个；key_figures 若无相关人物填 []；marginalia 3-5条；reference_images 2-6张。""",
+}
+
 
 # ═══════════════════════════════════════════════════════
 #   对外接口

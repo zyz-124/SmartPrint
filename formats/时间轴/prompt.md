@@ -21,6 +21,9 @@
   ],
   "marginalia": [
     "课本旁注、背景补充、比较辨析等"
+  ],
+  "reference_images": [
+    {"url": "https://example.com/image.jpg", "caption": "图片说明"}
   ]
 }
 
@@ -32,5 +35,6 @@
 - key_concepts：时间轴涉及的核心概念，4～6个
 - key_figures：时间轴中的关键人物，4～6个
 - marginalia：课本对这段历史的补充说明，3～5条
+- reference_images：搜索网上与主题相关的参考图片，2～6张
 - 内容准确，严格依照课本表述
 - 只输出 JSON，不要解释
