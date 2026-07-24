@@ -257,6 +257,10 @@ class SubjectDrawGUI:
         self.theme_var = tk.StringVar(value=DEFAULT_THEME)
         self.style_var = tk.StringVar(value=DEFAULT_STYLE)
         self.center_pos_var = tk.StringVar(value="center")
+        self.mm_primary_var = tk.StringVar(value="")
+        self.mm_accent_var = tk.StringVar(value="")
+        self.mm_bg_var = tk.StringVar(value="")
+        self.mm_text_var = tk.StringVar(value="")
 
 
         self._apply_styles()
@@ -377,8 +381,11 @@ class SubjectDrawGUI:
                                        lambda: self._switch_page("prompt"), C)
         self.prompt_item.pack(fill="x")
         self.preview_item = SidebarItem(nf, "\u25A3", "生成预览",
-                                        lambda: self._switch_page("preview"), C)
+                                         lambda: self._switch_page("preview"), C)
         self.preview_item.pack(fill="x")
+        self.tutorial_item = SidebarItem(nf, "\u2753", "使用教程",
+                                          lambda: self._show_tutorial(), C)
+        self.tutorial_item.pack(fill="x")
         tk.Frame(self.sidebar, bg=C["sidebar_bg"]).pack(fill="both", expand=True)
         self._sb_sep2 = tk.Frame(self.sidebar, bg=colors_rgba(C["sidebar_fg"], 0.15), height=1)
         self._sb_sep2.pack(fill="x", padx=20)
@@ -415,15 +422,87 @@ class SubjectDrawGUI:
             self._toggle_btn.configure(text="\u25B6")
             self.prompt_item.set_text_visible(False)
             self.preview_item.set_text_visible(False)
+            self.tutorial_item.set_text_visible(False)
             self._sb_settings_text.configure(text="\u2699", fg=C["sidebar_bg"])
         else:
             self.sidebar.configure(width=self._sidebar_full_w)
             self._toggle_btn.configure(text="\u25C0")
             self.prompt_item.set_text_visible(True)
             self.preview_item.set_text_visible(True)
+            self.tutorial_item.set_text_visible(True)
             self.prompt_item.set_active(self.current_page == "prompt")
             self.preview_item.set_active(self.current_page == "preview")
             self._sb_settings_text.configure(text="  \u2699  设置", fg=C["sidebar_fg"])
+
+    def _show_tutorial(self):
+        C = self.C
+        ff = C.get("font_family", "Microsoft YaHei UI")
+        fs = C.get("font_size", 10)
+        dlg = tk.Toplevel(self.root)
+        dlg.title("使用教程")
+        dlg.geometry("580x520")
+        dlg.resizable(False, True)
+        dlg.configure(bg=C["bg"])
+        dlg.transient(self.root)
+        dlg.grab_set()
+        dlg.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - 580) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - 520) // 2
+        dlg.geometry(f"+{x}+{y}")
+
+        tk.Label(dlg, text="SubjectDraw 使用教程",
+                 bg=C["bg"], fg=C["primary"],
+                 font=(ff, 15, "bold")).pack(pady=(20, 10))
+
+        text = tk.Text(dlg, wrap="word", bg=C["card"], fg=C["text"],
+                       font=(ff, fs), relief="flat", padx=20, pady=16,
+                       highlightthickness=1, highlightbackground=C["border"])
+        text.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+        text.configure(state="normal")
+
+        tutorial = """【Step 1】生成提示词
+1. 在左侧选择学科和主题
+2. 选择格式（思维导图/表格/时间轴/大纲）
+3. 选择写作风格
+4. 点击"生成提示词"
+5. 点击"复制"按钮，将提示词粘贴到 AI 对话中
+
+【Step 2】获取 AI 返回的 JSON
+1. 将提示词发送给 AI（如 ChatGPT、Claude、Kimi 等）
+2. AI 会返回一段 JSON 格式的知识卡片数据
+3. 复制 AI 返回的 JSON 内容
+
+【Step 3】生成预览
+1. 切换到"生成预览"页面
+2. 将 JSON 粘贴到文本框中
+3. 选择格式、色彩主题、装饰风格
+4. 可选：调整中心卡片位置（center/left/right/top/bottom）
+5. 可选：自定义思维导图颜色（主题色、强调色、背景色、文字色）
+6. 点击"生成预览"查看效果
+
+【思维导图交互操作】
+• 拖拽：按住鼠标左键拖动任意卡片
+• 缩放：鼠标滚轮 或 右上角 +/- 按钮
+• 平移：拖拽空白区域
+• 右键菜单：右键点击分支/要点/中心卡片
+  - 编辑文字、高光、反转方向、添加要点
+  - 更改背景色/边框色/文字色
+  - 删除要点/删除分支
+  - 中心卡片：展开/折叠所有分支
+• 撤销/重做：Ctrl+Z / Ctrl+Y（或右下角按钮）
+• 反转方向：只移动要点到另一侧，分支标题不动
+• 拖拽越过中心：连接线自动换边
+
+【设置】
+• 点击侧边栏底部"设置"
+• 可切换 GUI 主题、字体、侧边栏宽度
+• 可自定义 GUI 各区域颜色"""
+        text.insert("1.0", tutorial)
+        text.configure(state="disabled")
+
+        tk.Button(dlg, text="关闭", bg=C["primary"], fg=C["bg"],
+                  font=(ff, fs + 1, "bold"), relief="flat",
+                  padx=30, pady=6, command=dlg.destroy).pack(pady=(0, 16))
 
     def _build_content_area(self):
         self.content = tk.Frame(self.root, bg=self.C["bg"])
@@ -574,6 +653,38 @@ class SubjectDrawGUI:
         POSITIONS = ["center", "left", "right", "top", "bottom"]
         self._combo(g2, self.center_pos_var, POSITIONS, 14).grid(
             row=5, column=0, columnspan=2, sticky="ew", padx=(0, 16), pady=(0, 6))
+        self._lbl(g2, "自定义颜色").grid(row=6, column=0, sticky="w", padx=(0, 6), pady=(8, 3))
+        color_frame = tk.Frame(g2, bg=C["card"])
+        color_frame.grid(row=7, column=0, columnspan=4, sticky="ew", pady=(0, 6))
+        color_items = [
+            ("主题色", self.mm_primary_var),
+            ("强调色", self.mm_accent_var),
+            ("背景色", self.mm_bg_var),
+            ("文字色", self.mm_text_var),
+        ]
+        for ci, (label, var) in enumerate(color_items):
+            lf = tk.Frame(color_frame, bg=C["card"])
+            lf.pack(side="left", padx=(0, 12))
+            tk.Label(lf, text=label, bg=C["card"], fg=C["text"],
+                     font=(ff, fs - 1)).pack(anchor="w")
+            ef = tk.Frame(lf, bg=C["card"])
+            ef.pack(anchor="w")
+            entry = tk.Entry(ef, textvariable=var, width=7,
+                             bg=C["input_bg"], fg=C["text"],
+                             font=(ff, fs - 1), relief="flat",
+                             highlightthickness=1,
+                             highlightbackground=C["border"],
+                             highlightcolor=C["primary"])
+            entry.pack(side="left")
+            def _pick_color(target_var=var):
+                from tkinter import colorchooser
+                c = colorchooser.askcolor(initialcolor=target_var.get() or "#000000")
+                if c and c[1]:
+                    target_var.set(c[1])
+            tk.Button(ef, text="...", width=2,
+                      bg=C["light_bg"], fg=C["text"],
+                      font=(ff, fs - 1), relief="flat",
+                      command=_pick_color).pack(side="left", padx=(2, 0))
 
         c4 = self._card(outer)
         c4.pack(fill="both", expand=True, pady=(14, 0))
@@ -976,6 +1087,12 @@ class SubjectDrawGUI:
             fmt_opts = dict(
                 theme=self.theme_var.get().strip() or DEFAULT_THEME,
                 style=self.style_var.get().strip() or DEFAULT_STYLE,
+                mm_colors={
+                    "primary": self.mm_primary_var.get().strip(),
+                    "accent": self.mm_accent_var.get().strip(),
+                    "bg": self.mm_bg_var.get().strip(),
+                    "text": self.mm_text_var.get().strip(),
+                },
             )
             html = render_html(data, fmt=fmt, **fmt_opts)
             os.makedirs(OUTPUT_DIR, exist_ok=True)

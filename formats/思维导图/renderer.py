@@ -15,9 +15,27 @@ LAYOUT_MAP = {
 }
 
 
+def _build_mm_color_overrides(colors):
+    mapping = {
+        "primary": "--primary",
+        "accent": "--accent",
+        "bg": "--bg",
+        "text": "--text",
+    }
+    lines = []
+    for key, var in mapping.items():
+        val = colors.get(key, "")
+        if val and val.strip():
+            lines.append(f"  {var}: {val.strip()};")
+    if lines:
+        return ":root {\n" + "\n".join(lines) + "\n}"
+    return ""
+
+
 def render_html(data, **fmt_opts):
     theme = fmt_opts.get("theme", "素雅灰")
     style = fmt_opts.get("style", "简约几何")
+    mm_colors = fmt_opts.get("mm_colors", {})
 
     center = data.get("center", "")
     subtitle = data.get("subtitle", "")
@@ -98,6 +116,7 @@ def render_html(data, **fmt_opts):
 <title>{center}</title>
 <style>
 {theme_css_vars(theme)}
+{_build_mm_color_overrides(mm_colors)}
 {shared_css()}
 {decoration_css(style)}
 {knowledge_panel_css()}
@@ -253,17 +272,17 @@ def render_html(data, **fmt_opts):
 </style>
 </head>
 <body>
+<div class="zoom-controls" id="zoomControls">
+    <button id="zoomIn" title="放大">+</button>
+    <span id="zoomLevel">100%</span>
+    <button id="zoomOut" title="缩小">-</button>
+    <button id="zoomReset" title="重置">&#x27F3;</button>
+</div>
+<div class="undo-bar" id="undoBar">
+    <button id="undoBtn" title="撤销 Ctrl+Z" disabled>&#x21A9;</button>
+    <button id="redoBtn" title="重做 Ctrl+Y" disabled>&#x21AA;</button>
+</div>
 <div class="page" id="canvas">
-    <div class="zoom-controls" id="zoomControls">
-        <button id="zoomIn" title="放大">+</button>
-        <span id="zoomLevel">100%</span>
-        <button id="zoomOut" title="缩小">-</button>
-        <button id="zoomReset" title="重置">&#x27F3;</button>
-    </div>
-    <div class="undo-bar" id="undoBar">
-        <button id="undoBtn" title="撤销 Ctrl+Z" disabled>&#x21A9;</button>
-        <button id="redoBtn" title="重做 Ctrl+Y" disabled>&#x21AA;</button>
-    </div>
     <div class="zoom-viewport" id="zoomViewport">
     <svg class="conn-svg" id="connSvg"></svg>
     <div class="top-bar">
