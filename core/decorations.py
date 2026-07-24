@@ -181,34 +181,7 @@ def knowledge_panel_css():
     color: var(--accent, #666);
     margin-right: 4px;
 }
-.ref-images-section {
-    margin-top: 14px;
-}
-.ref-images-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
-    margin-top: 8px;
-}
-.ref-img-card {
-    border: 1px solid var(--border, #ddd);
-    border-radius: 6px;
-    overflow: hidden;
-    background: var(--light-bg, #fafafa);
-}
-.ref-img-card img {
-    width: 100%;
-    height: 110px;
-    object-fit: cover;
-    display: block;
-}
-.ref-img-caption {
-    font-size: 10px;
-    color: var(--muted, #666);
-    padding: 6px 8px;
-    line-height: 1.4;
-    text-align: center;
-}
+
 """
 
 
@@ -217,7 +190,6 @@ def knowledge_panel_html(data, style_name):
     figures = data.get("key_figures", [])
     marginalia = data.get("marginalia", [])
     exam_focus = data.get("exam_focus", [])
-    reference_images = data.get("reference_images", [])
 
     if not concepts and not figures and not marginalia and not exam_focus:
         return ""
@@ -279,28 +251,6 @@ def knowledge_panel_html(data, style_name):
             f'</div>'
         )
 
-    ref_html = ""
-    if reference_images:
-        ref_items = ""
-        for img in reference_images:
-            url = img.get("url", "")
-            caption = img.get("caption", "")
-            if url:
-                ref_items += (
-                    f'<div class="ref-img-card">'
-                    f'<img src="{url}" alt="{caption}" loading="lazy"/>'
-                    f'<div class="ref-img-caption">{caption}</div>'
-                    f'</div>'
-                )
-        if ref_items:
-            ref_html = (
-                '<div class="ref-images-section">'
-                + divider_html(style_name)
-                + '<div class="kp-label">参考图片</div>'
-                + '<div class="ref-images-grid">' + ref_items + '</div>'
-                + '</div>'
-            )
-
     return (
         '<div class="knowledge-panel">'
         + divider_html(style_name)
@@ -308,7 +258,6 @@ def knowledge_panel_html(data, style_name):
         + '<div>' + "".join(left_parts) + '</div>'
         + '<div>' + "".join(right_parts) + '</div>'
         + '</div>'
-        + ref_html
         + '</div>'
     )
 

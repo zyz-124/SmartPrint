@@ -13,12 +13,7 @@ STRUCTURE_RULES = """\
 - 每个 point 是完整的一句话（15-50字）
 - 不要出现"考试重点""必考"等与考试相关的词语
 
-【参考图片 reference_images】
-- 从网上搜索与主题相关的参考图片，URL 必须是可直接访问的图片链接
-- 优先使用维基百科、百度百科、百科知识类网站的图片
-- 每张图片附带 caption 说明，中文
-- 图片数量 2-6 张，覆盖不同知识点
-- 找不到合适的图片时填空列表 []"""
+"""
 
 # ═══════════════════════════════════════════════════════
 #   四种风格的写作指令
@@ -95,12 +90,9 @@ JSON结构（严格按此格式输出，所有字段必须存在）：
   "key_figures": [
     { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献" }
   ],
-  "marginalia": ["补充说明或知识拓展"],
-  "reference_images": [
-    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
-  ]
+  "marginalia": ["补充说明或知识拓展"]
 }
-说明：branches 3-5个，每个2-4个要点；timeline 按时间顺序（理科可用 []）；key_concepts 3-6个；key_figures 2-4个；marginalia 2-4条；reference_images 2-6张，搜索网上相关图片 URL。""",
+说明：branches 3-5个，每个2-4个要点；timeline 按时间顺序（理科可用 []）；key_concepts 3-6个；key_figures 2-4个；marginalia 2-4条。""",
 
     "表格": """\
 JSON结构（严格按此格式输出，所有字段必须存在）：
@@ -121,12 +113,9 @@ JSON结构（严格按此格式输出，所有字段必须存在）：
   "key_figures": [
     { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献" }
   ],
-  "marginalia": ["补充说明或知识拓展"],
-  "reference_images": [
-    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
-  ]
+  "marginalia": ["补充说明或知识拓展"]
 }
-说明：branches 4-8个，每个3-5个要点；key_concepts 3-6个；key_figures 若无相关人物填 []；marginalia 2-4条；reference_images 2-6张。""",
+说明：branches 4-8个，每个3-5个要点；key_concepts 3-6个；key_figures 若无相关人物填 []；marginalia 2-4条。""",
 
     "时间轴": """\
 JSON结构（严格按此格式输出，所有字段必须存在）：
@@ -149,12 +138,9 @@ JSON结构（严格按此格式输出，所有字段必须存在）：
   "key_figures": [
     { "name": "人物姓名", "title": "身份", "contribution": "主要事迹" }
   ],
-  "marginalia": ["补充说明或背景知识"],
-  "reference_images": [
-    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
-  ]
+  "marginalia": ["补充说明或背景知识"]
 }
-说明：timeline 至少8个节点，按时间先后排列；branches 3-5个阶段；key_concepts 3-5个；key_figures 3-5个；marginalia 2-4条；reference_images 2-6张。""",
+说明：timeline 至少8个节点，按时间先后排列；branches 3-5个阶段；key_concepts 3-5个；key_figures 3-5个；marginalia 2-4条。""",
 
     "大纲": """\
 JSON结构（严格按此格式输出，所有字段必须存在）：
@@ -178,12 +164,9 @@ JSON结构（严格按此格式输出，所有字段必须存在）：
   "key_figures": [
     { "name": "人物姓名", "title": "身份头衔", "contribution": "主要贡献" }
   ],
-  "marginalia": ["课本旁注、知识拓展、易混辨析等补充内容"],
-  "reference_images": [
-    { "url": "https://example.com/image.jpg", "caption": "图片说明" }
-  ]
+  "marginalia": ["课本旁注、知识拓展、易混辨析等补充内容"]
 }
-说明：branches 4-8个，每个3-5个要点；key_concepts 4-8个；key_figures 若无相关人物填 []；marginalia 3-5条；reference_images 2-6张。""",
+说明：branches 4-8个，每个3-5个要点；key_concepts 4-8个；key_figures 若无相关人物填 []；marginalia 3-5条。""",
 }
 
 
