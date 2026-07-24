@@ -79,6 +79,7 @@ JSON结构（严格按此格式输出，所有字段必须存在）：
   "subject": "学科名",
   "center": "主题名",
   "subtitle": "课本版本信息，如 人教版八年级上册 第8课",
+  "centerPosition": "center",
   "branches": [
     {
       "title": "分支标题",

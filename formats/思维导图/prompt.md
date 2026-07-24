@@ -4,6 +4,7 @@
   "subject": "{subject}",
   "center": "{topic}",
   "subtitle": "（课本版本信息，如 人教版八年级上册 第8课）",
+  "centerPosition": "center",
   "branches": [
     {"title": "小节标题", "points": [
       "该小节第一个要点，详细描述事件背景或原因",
@@ -33,6 +34,7 @@
 - 8～10个分支（小节），每分支3～5个要点
 - 每个要点15～30个字，要完整表述一个知识点
 - 按课本章节结构组织，覆盖该课所有重点内容
+- centerPosition：中心卡片位置，可选 "center"（居中，左右分支）/ "left"（左侧）/ "right"（右侧）/ "top"（上方）/ "bottom"（下方），默认 "center"
 - key_concepts：提取课本加粗或框住的术语概念，4～6个
 - key_figures：课本提到的重要人物，3～5个
 - marginalia：课本旁注/小字/资料卡内容，3～5条

@@ -1,10 +1,18 @@
-import random
 from core.theme import theme_css_vars
 from core.decorations import (
     divider_html, title_ornament, bullet_svg,
     shared_css, decoration_css, student_info_html, footer_html,
     knowledge_panel_html, knowledge_panel_css, base_page_css,
 )
+
+
+LAYOUT_MAP = {
+    "center": {"is_split": True, "direction": "row", "align": "center"},
+    "left":   {"is_split": False, "direction": "row", "align": "start"},
+    "right":  {"is_split": False, "direction": "row-reverse", "align": "start"},
+    "top":    {"is_split": False, "direction": "column", "align": "center"},
+    "bottom": {"is_split": False, "direction": "column-reverse", "align": "center"},
+}
 
 
 def render_html(data, **fmt_opts):
@@ -17,6 +25,12 @@ def render_html(data, **fmt_opts):
     branches = data.get("branches", [])
     timeline = data.get("timeline", [])
 
+    position = data.get("centerPosition", "center")
+    if position not in LAYOUT_MAP:
+        position = "center"
+    layout_cfg = LAYOUT_MAP[position]
+    is_split = layout_cfg["is_split"]
+
     student_html = student_info_html(
         fmt_opts.get("student_name", ""),
         fmt_opts.get("cls", ""),
@@ -26,9 +40,6 @@ def render_html(data, **fmt_opts):
     footer = footer_html("1", fmt_opts.get("date", ""))
     divider = divider_html(style)
     title_dec = title_ornament(style)
-
-    layout = random.randint(0, 7)
-    is_split = layout in (2, 7)
 
     if is_split and len(branches) >= 2:
         mid = (len(branches) + 1) // 2
@@ -76,6 +87,10 @@ def render_html(data, **fmt_opts):
 
     kp_html = knowledge_panel_html(data, style)
 
+    mm_direction = layout_cfg["direction"]
+    mm_align = layout_cfg["align"]
+    is_vertical = mm_direction in ("column", "column-reverse")
+
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -90,12 +105,13 @@ def render_html(data, **fmt_opts):
 * {{ box-sizing: border-box; }}
 .divider-wrap {{ margin:12px auto; max-width:400px; }}
 
-.mm-wrap {{ display:flex; gap:0; margin-top:20px; width:100%; }}
-.mm-center {{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; position:relative; }}
+.mm-wrap {{ display:flex; flex-direction:{mm_direction}; align-items:{mm_align}; gap:0; margin-top:30px; width:100%; padding:0 10px; }}
+.mm-center {{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; position:relative; padding:0 30px; }}
 .mm-center-card {{
-    width:180px; height:180px; display:flex; align-items:center; justify-content:center;
-    background:var(--primary, #222); color:var(--bg, #fff); font-size:22px; font-weight:bold;
-    letter-spacing:3px; border-radius:50%; text-align:center; cursor:grab; user-select:none;
+    min-width:140px; max-width:200px; padding:18px 24px; display:flex; align-items:center; justify-content:center;
+    background: linear-gradient(135deg, var(--primary, #222), var(--accent, #4a90d9));
+    color:var(--bg, #fff); font-size:20px; font-weight:bold;
+    letter-spacing:3px; border-radius:16px; text-align:center; cursor:grab; user-select:none;
     touch-action:none; position:relative; z-index:5;
     box-shadow:0 8px 32px rgba(0,0,0,0.18);
     animation: centerPulse 3s ease-in-out infinite;
@@ -104,57 +120,57 @@ def render_html(data, **fmt_opts):
     0%,100% {{ box-shadow:0 8px 32px rgba(0,0,0,0.18); transform:scale(1); }}
     50% {{ box-shadow:0 8px 48px rgba(0,0,0,0.28); transform:scale(1.03); }}
 }}
-.mm-branches {{ flex:1 1 auto; display:grid; gap:14px; align-content:start; }}
-.mm-side {{ display:flex; flex-direction:column; gap:14px; }}
+.mm-branches {{ flex:1 1 auto; display:grid; gap:24px; align-content:start; padding:0 10px; }}
+.mm-side {{ display:flex; flex-direction:column; gap:24px; padding:0 10px; flex:1; }}
 .mm-side.left {{ align-items:flex-end; }}
 .mm-side.right {{ align-items:flex-start; }}
 
-.branch-group {{ display:flex; flex-direction:column; gap:5px; position:relative; }}
-.side-left {{ align-items:flex-end; }}
-.side-left .branch-points {{ display:flex; flex-direction:column; align-items:flex-end; }}
-.side-right {{ align-items:flex-start; }}
-.side-right .branch-points {{ display:flex; flex-direction:column; align-items:flex-start; }}
+.branch-group {{ display:flex; flex-direction:row; align-items:center; gap:10px; position:relative; transition:opacity 0.3s, transform 0.3s; }}
+.side-left {{ flex-direction:row-reverse; align-items:center; }}
+.side-left .branch-points {{ display:flex; flex-direction:column; align-items:flex-end; gap:5px; }}
+.side-right {{ flex-direction:row; align-items:center; }}
+.side-right .branch-points {{ display:flex; flex-direction:column; align-items:flex-start; gap:5px; }}
 
+.mm-branches .branch-group.side-left {{ flex-direction:row-reverse; align-items:center; }}
+.mm-branches .branch-group.side-left .branch-points {{ align-items:flex-end; }}
+.mm-branches .branch-group.side-right {{ flex-direction:row; align-items:center; }}
+.mm-branches .branch-group.side-right .branch-points {{ align-items:flex-start; }}
+
+.branch-group.points-flipped .branch-points {{
+    position:absolute; top:0; z-index:6;
+}}
+.branch-group.side-left.points-flipped .branch-points {{
+    left:calc(100% + 20px);
+}}
+.branch-group.side-right.points-flipped .branch-points {{
+    right:calc(100% + 20px);
+}}
 .branch-title-card {{
-    font-size:14px; font-weight:bold; color:var(--primary, #222); letter-spacing:1.5px;
+    display:inline-flex; max-width:180px; flex-shrink:0;
+    font-size:13px; font-weight:bold; color:var(--primary, #222); letter-spacing:1px;
     padding:7px 14px; border:2px solid var(--primary, #222); border-radius:10px;
     background:var(--light-bg, #f5f5f5); cursor:grab; user-select:none; touch-action:none;
-    position:relative; z-index:5; white-space:nowrap;
+    position:relative; z-index:5; word-break:keep-all; overflow-wrap:normal;
+    white-space:normal; line-height:1.4;
 }}
 .point-card {{
-    font-size:12px; color:var(--text, #333); line-height:1.5; padding:5px 10px;
+    display:block; max-width:200px;
+    font-size:11px; color:var(--text, #333); line-height:1.4; padding:4px 9px;
     border:1.5px dashed var(--border, #888); border-radius:8px; background:var(--bg, #fff);
-    cursor:grab; user-select:none; touch-action:none; position:relative; z-index:5; white-space:nowrap;
+    cursor:grab; user-select:none; touch-action:none; position:relative; z-index:5;
+    white-space:normal; word-break:keep-all;
 }}
 .dragging {{
     cursor:grabbing !important; box-shadow:0 16px 48px rgba(0,0,0,0.25);
     border-color:var(--accent, #4a90d9) !important; border-style:solid !important; z-index:100 !important;
 }}
 
-/* === LAYOUTS === */
-.layout-0 {{ flex-direction:row; align-items:center; }}
-.layout-0 .mm-branches {{ grid-template-columns:1fr 1fr; }}
-
-.layout-1 {{ flex-direction:row-reverse; align-items:center; }}
-.layout-1 .mm-branches {{ grid-template-columns:1fr 1fr; }}
-
-.layout-2 {{ flex-direction:row; align-items:center; }}
-
-.layout-3 {{ flex-direction:column; align-items:center; }}
-.layout-3 .mm-branches {{ grid-template-columns:1fr 1fr 1fr; }}
-
-.layout-4 {{ flex-direction:column-reverse; align-items:center; }}
-.layout-4 .mm-branches {{ grid-template-columns:1fr 1fr 1fr; }}
-
-.layout-5 {{ flex-direction:row; align-items:center; }}
-.layout-5 .mm-center-card {{ width:140px; height:140px; font-size:18px; }}
-.layout-5 .mm-branches {{ grid-template-columns:1fr 1fr; }}
-
-.layout-6 {{ flex-direction:row-reverse; align-items:center; }}
-.layout-6 .mm-center-card {{ width:140px; height:140px; font-size:18px; }}
-.layout-6 .mm-branches {{ grid-template-columns:1fr 1fr; }}
-
-.layout-7 {{ flex-direction:row; align-items:center; justify-content:center; }}
+.conn-svg {{ position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:3; overflow:visible; }}
+.conn-path {{ fill:none; stroke-linecap:round; }}
+.conn-main {{ stroke:var(--primary, #333); stroke-width:2.5; stroke-dasharray:8 5; opacity:0.6; }}
+.conn-branch {{ stroke:var(--accent, #4a90d9); stroke-width:2; stroke-dasharray:8 4; opacity:0.65; }}
+.conn-path {{ animation:flowDash 2s linear infinite; }}
+@keyframes flowDash {{ to {{ stroke-dashoffset:-28; }} }}
 
 .timeline-section {{ margin:16px 0 24px; }}
 .section-title {{ text-align:center; font-size:14px; font-weight:bold; color:var(--primary, #333); letter-spacing:3px; margin-bottom:16px; }}
@@ -163,16 +179,92 @@ def render_html(data, **fmt_opts):
 .tl-date {{ font-size:12px; font-weight:bold; color:var(--primary, #222); white-space:nowrap; }}
 .tl-event {{ font-size:12px; color:var(--text, #444); line-height:1.4; }}
 
-.conn-svg {{ position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:3; overflow:visible; }}
-.conn-path {{ fill:none; stroke-linecap:round; }}
-.conn-main {{ stroke:var(--primary, #333); stroke-width:2.5; stroke-dasharray:8 5; opacity:0.45; }}
-.conn-branch {{ stroke:var(--border, #aaa); stroke-width:2; stroke-dasharray:6 4; opacity:0.55; }}
-.conn-path {{ animation:flowDash 2s linear infinite; }}
-@keyframes flowDash {{ to {{ stroke-dashoffset:-28; }} }}
+.zoom-viewport {{
+    position:relative; overflow:hidden; width:100%; min-height:70vh;
+    cursor:grab;
+}}
+.zoom-viewport.grabbing {{ cursor:grabbing; }}
+.zoom-content {{
+    position:relative; transform-origin:0 0; transition:transform 0.08s ease-out;
+    will-change:transform;
+}}
+.zoom-controls {{
+    position:fixed; top:16px; right:16px; z-index:200;
+    display:flex; align-items:center; gap:4px;
+    background:var(--card, #fff); border:1px solid var(--border, #ddd);
+    border-radius:8px; padding:4px 8px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.1);
+    font-family:"Microsoft YaHei UI",sans-serif;
+}}
+.zoom-controls button {{
+    width:28px; height:28px; border:none; border-radius:6px;
+    background:var(--light-bg, #f0f0f0); color:var(--text, #333);
+    font-size:16px; font-weight:bold; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background 0.15s;
+}}
+.zoom-controls button:hover {{ background:var(--primary, #333); color:var(--bg, #fff); }}
+.zoom-controls span {{
+    font-size:12px; color:var(--muted, #888); min-width:40px; text-align:center;
+    user-select:none;
+}}
+
+.ctx-menu {{
+    display:none; position:fixed; z-index:999;
+    background:var(--card, #fff); border:1px solid var(--border, #ddd);
+    border-radius:10px; padding:6px 0; min-width:180px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.18);
+    font-family:"Microsoft YaHei UI",sans-serif; font-size:13px;
+}}
+.ctx-menu.show {{ display:block; }}
+.ctx-item {{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 16px; cursor:pointer; color:var(--text, #333);
+    transition:background 0.12s;
+}}
+.ctx-item:hover {{ background:var(--light-bg, #f0f0f0); }}
+.ctx-item .icon {{ width:18px; text-align:center; font-size:14px; flex-shrink:0; }}
+.ctx-sep {{ height:1px; background:var(--border, #e0e0e0); margin:4px 12px; }}
+.ctx-sub {{ padding:4px 12px 4px 36px; display:flex; align-items:center; gap:6px; }}
+.ctx-sub input[type="color"] {{
+    width:22px; height:22px; border:1px solid var(--border, #ccc); border-radius:4px;
+    padding:0; cursor:pointer; background:none;
+}}
+.ctx-item.danger {{ color:#d33; }}
+.ctx-item.danger:hover {{ background:#fef0f0; }}
+
+.undo-bar {{
+    position:fixed; bottom:16px; right:16px; z-index:200;
+    display:flex; align-items:center; gap:4px;
+    background:var(--card, #fff); border:1px solid var(--border, #ddd);
+    border-radius:8px; padding:4px 8px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.1);
+    font-family:"Microsoft YaHei UI",sans-serif;
+}}
+.undo-bar button {{
+    width:28px; height:28px; border:none; border-radius:6px;
+    background:var(--light-bg, #f0f0f0); color:var(--text, #333);
+    font-size:14px; font-weight:bold; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background 0.15s;
+}}
+.undo-bar button:hover {{ background:var(--primary, #333); color:var(--bg, #fff); }}
+.undo-bar button:disabled {{ opacity:0.3; cursor:default; background:var(--light-bg, #f0f0f0); color:var(--text, #333); }}
 </style>
 </head>
 <body>
 <div class="page" id="canvas">
+    <div class="zoom-controls" id="zoomControls">
+        <button id="zoomIn" title="放大">+</button>
+        <span id="zoomLevel">100%</span>
+        <button id="zoomOut" title="缩小">-</button>
+        <button id="zoomReset" title="重置">&#x27F3;</button>
+    </div>
+    <div class="undo-bar" id="undoBar">
+        <button id="undoBtn" title="撤销 Ctrl+Z" disabled>&#x21A9;</button>
+        <button id="redoBtn" title="重做 Ctrl+Y" disabled>&#x21AA;</button>
+    </div>
+    <div class="zoom-viewport" id="zoomViewport">
     <svg class="conn-svg" id="connSvg"></svg>
     <div class="top-bar">
         <div class="subject-label">{subject}</div>
@@ -183,12 +275,50 @@ def render_html(data, **fmt_opts):
         <div class="subtitle">{subtitle}</div>
         <div class="divider-wrap">{divider}</div>
     </div>
-    <div class="mm-wrap layout-{layout}" id="mmWrap">
+    <div class="mm-wrap" id="mmWrap">
         {mm_inner}
     </div>
     {timeline_html}
     {kp_html}
     {footer}
+    </div>
+</div>
+<div class="ctx-menu" id="ctxMenu">
+    <div class="ctx-item" data-action="highlight"><span class="icon">&#9733;</span>高光</div>
+    <div class="ctx-item" data-action="invert"><span class="icon">&#8644;</span>反转方向</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="edit"><span class="icon">&#9998;</span>编辑文字</div>
+    <div class="ctx-item" data-action="addPoint"><span class="icon">+</span>添加要点</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="pickBg"><span class="icon">&#9632;</span>背景色
+        <div class="ctx-sub"><input type="color" id="ctxBgColor" value="#ffffff"></div>
+    </div>
+    <div class="ctx-item" data-action="pickBorder"><span class="icon">&#9632;</span>边框色
+        <div class="ctx-sub"><input type="color" id="ctxBorderColor" value="#222222"></div>
+    </div>
+    <div class="ctx-item" data-action="pickText"><span class="icon">&#9632;</span>文字色
+        <div class="ctx-sub"><input type="color" id="ctxTextColor" value="#333333"></div>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="reset"><span class="icon">&#8634;</span>恢复默认</div>
+    <div class="ctx-item danger" data-action="deletePoint"><span class="icon">&#10005;</span>删除要点</div>
+    <div class="ctx-item danger" data-action="delete"><span class="icon">&#10005;</span>删除分支</div>
+</div>
+<div class="ctx-menu" id="ctxCenter">
+    <div class="ctx-item" data-action="edit"><span class="icon">&#9998;</span>编辑文字</div>
+    <div class="ctx-item" data-action="highlight"><span class="icon">&#9733;</span>高光</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="expandAll"><span class="icon">&#9654;</span>展开所有分支</div>
+    <div class="ctx-item" data-action="collapseAll"><span class="icon">&#9664;</span>折叠所有分支</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="pickBg"><span class="icon">&#9632;</span>背景色
+        <div class="ctx-sub"><input type="color" id="ctxCenterBg" value="#ffffff"></div>
+    </div>
+    <div class="ctx-item" data-action="pickText"><span class="icon">&#9632;</span>文字色
+        <div class="ctx-sub"><input type="color" id="ctxCenterText" value="#ffffff"></div>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="resetAll"><span class="icon">&#8634;</span>恢复所有样式</div>
 </div>
 <script>
 (function() {{
@@ -197,13 +327,150 @@ def render_html(data, **fmt_opts):
 var canvas = document.getElementById('canvas');
 var svg = document.getElementById('connSvg');
 var centerCard = document.getElementById('centerCard');
-var layout = {layout};
 var isSplit = { 'true' if is_split else 'false' };
+var isVertical = { 'true' if is_vertical else 'false' };
 var cards = Array.prototype.slice.call(document.querySelectorAll('.branch-title-card, .point-card, .mm-center-card'));
 var mainConns = [];
 var subConns = [];
 var NS = 'http://www.w3.org/2000/svg';
 
+// === UNDO / REDO ===
+var undoStack = [], redoStack = [], MAX_UNDO = 30;
+var undoBtn = document.getElementById('undoBtn');
+var redoBtn = document.getElementById('redoBtn');
+
+function snapshot() {{
+    undoStack.push(canvas.innerHTML);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+    updateUndoBtns();
+}}
+function undo() {{
+    if (!undoStack.length) return;
+    redoStack.push(canvas.innerHTML);
+    canvas.innerHTML = undoStack.pop();
+    afterRestore();
+}}
+function redo() {{
+    if (!redoStack.length) return;
+    undoStack.push(canvas.innerHTML);
+    canvas.innerHTML = redoStack.pop();
+    afterRestore();
+}}
+function afterRestore() {{
+    centerCard = document.getElementById('centerCard');
+    cards = Array.prototype.slice.call(document.querySelectorAll('.branch-title-card, .point-card, .mm-center-card'));
+    rebuildConns();
+    setTimeout(drawAll, 50);
+    updateUndoBtns();
+}}
+function updateUndoBtns() {{
+    undoBtn.disabled = !undoStack.length;
+    redoBtn.disabled = !redoStack.length;
+}}
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+document.addEventListener('keydown', function(e) {{
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {{ e.preventDefault(); undo(); }}
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {{ e.preventDefault(); redo(); }}
+}});
+
+// === ZOOM & PAN ===
+var viewport = document.getElementById('zoomViewport');
+var zoom = 1, panX = 0, panY = 0;
+var isPanning = false, panSX = 0, panSY = 0, panOX = 0, panOY = 0;
+var zoomLabel = document.getElementById('zoomLevel');
+var MIN_ZOOM = 0.3, MAX_ZOOM = 3;
+
+function wrapZoomContent() {{
+    var wrapper = document.createElement('div');
+    wrapper.className = 'zoom-content';
+    wrapper.id = 'zoomContent';
+    var children = Array.prototype.slice.call(viewport.childNodes);
+    children.forEach(function(c) {{ wrapper.appendChild(c); }});
+    viewport.appendChild(wrapper);
+    return wrapper;
+}}
+var zc = document.getElementById('zoomContent') || wrapZoomContent();
+function applyTransform() {{
+    zc.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+    zoomLabel.textContent = Math.round(zoom * 100) + '%';
+}}
+
+viewport.addEventListener('wheel', function(e) {{
+    e.preventDefault();
+    var rect = viewport.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var delta = e.deltaY > 0 ? -0.08 : 0.08;
+    var oldZoom = zoom;
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + delta * zoom));
+    var ratio = zoom / oldZoom;
+    panX = mx - ratio * (mx - panX);
+    panY = my - ratio * (my - panY);
+    applyTransform();
+}}, {{ passive: false }});
+
+viewport.addEventListener('mousedown', function(e) {{
+    if (e.target.closest('.branch-title-card, .point-card, .mm-center-card')) return;
+    isPanning = true; panSX = e.clientX; panSY = e.clientY; panOX = panX; panOY = panY;
+    viewport.classList.add('grabbing');
+}});
+window.addEventListener('mousemove', function(e) {{
+    if (!isPanning) return;
+    panX = panOX + e.clientX - panSX;
+    panY = panOY + e.clientY - panSY;
+    applyTransform();
+}});
+window.addEventListener('mouseup', function() {{
+    isPanning = false;
+    viewport.classList.remove('grabbing');
+}});
+
+var lastTouchDist = 0, lastTouchMid = null;
+viewport.addEventListener('touchstart', function(e) {{
+    if (e.touches.length === 2) {{
+        var dx = e.touches[0].clientX - e.touches[1].clientX;
+        var dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+        lastTouchMid = {{ x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 }};
+    }} else if (e.touches.length === 1 && !e.target.closest('.branch-title-card, .point-card, .mm-center-card')) {{
+        isPanning = true; panSX = e.touches[0].clientX; panSY = e.touches[0].clientY;
+        panOX = panX; panOY = panY;
+    }}
+}}, {{ passive: true }});
+viewport.addEventListener('touchmove', function(e) {{
+    if (e.touches.length === 2 && lastTouchDist) {{
+        e.preventDefault();
+        var dx = e.touches[0].clientX - e.touches[1].clientX;
+        var dy = e.touches[0].clientY - e.touches[1].clientY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var rect = viewport.getBoundingClientRect();
+        var mid = {{ x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top }};
+        var ratio = dist / lastTouchDist;
+        var oldZoom = zoom;
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * ratio));
+        var r = zoom / oldZoom;
+        panX = mid.x - r * (mid.x - panX);
+        panY = mid.y - r * (mid.y - panY);
+        panX += mid.x - lastTouchMid.x;
+        panY += mid.y - lastTouchMid.y;
+        lastTouchDist = dist;
+        lastTouchMid = {{ x: mid.x + rect.left, y: mid.y + rect.top }};
+        applyTransform();
+    }} else if (e.touches.length === 1 && isPanning) {{
+        e.preventDefault();
+        panX = panOX + e.touches[0].clientX - panSX;
+        panY = panOY + e.touches[0].clientY - panSY;
+        applyTransform();
+    }}
+}}, {{ passive: false }});
+viewport.addEventListener('touchend', function() {{ isPanning = false; lastTouchDist = 0; lastTouchMid = null; }});
+
+document.getElementById('zoomIn').addEventListener('click', function() {{ zoom = Math.min(MAX_ZOOM, zoom + 0.15); applyTransform(); }});
+document.getElementById('zoomOut').addEventListener('click', function() {{ zoom = Math.max(MIN_ZOOM, zoom - 0.15); applyTransform(); }});
+document.getElementById('zoomReset').addEventListener('click', function() {{ zoom = 1; panX = 0; panY = 0; applyTransform(); }});
+
+// Entrance animation
 cards.forEach(function(c, i) {{
     c.style.opacity = '0';
     c.style.transform = 'translateY(18px) scale(0.95)';
@@ -215,25 +482,30 @@ cards.forEach(function(c, i) {{
     }}, 40 + i * 45);
 }});
 
+if (!isSplit) {{
+    setTimeout(function() {{
+        var cRect = centerCard.getBoundingClientRect();
+        var cMidX = cRect.left + cRect.width / 2;
+        document.querySelectorAll('.branch-group').forEach(function(g) {{
+            var bt = g.querySelector('.branch-title-card');
+            if (!bt) return;
+            var bRect = bt.getBoundingClientRect();
+            var bMidX = bRect.left + bRect.width / 2;
+            g.classList.add(bMidX < cMidX ? 'side-left' : 'side-right');
+        }});
+    }}, 100);
+}}
+
 document.querySelectorAll('.branch-title-card').forEach(function(bt) {{
     var side = 'none';
-    if (isSplit) {{
-        var p = bt.closest('.mm-side');
-        if (p) side = p.classList.contains('left') ? 'left' : 'right';
-    }}
+    if (isSplit) {{ var p = bt.closest('.mm-side'); if (p) side = p.classList.contains('left') ? 'left' : 'right'; }}
     mainConns.push({{ from: centerCard, to: bt, side: side }});
 }});
-
 document.querySelectorAll('.branch-group').forEach(function(g) {{
     var title = g.querySelector('.branch-title-card');
     var side = 'none';
-    if (isSplit) {{
-        var p = g.closest('.mm-side');
-        if (p) side = p.classList.contains('left') ? 'left' : 'right';
-    }}
-    g.querySelectorAll('.point-card').forEach(function(pt) {{
-        subConns.push({{ from: title, to: pt, side: side }});
-    }});
+    if (isSplit) {{ var p = g.closest('.mm-side'); if (p) side = p.classList.contains('left') ? 'left' : 'right'; }}
+    g.querySelectorAll('.point-card').forEach(function(pt) {{ subConns.push({{ from: title, to: pt, side: side }}); }});
 }});
 
 function makePath(cls) {{
@@ -247,85 +519,64 @@ var subPaths = subConns.map(function() {{ return makePath('conn-branch'); }});
 
 function relPos(el) {{
     var er = el.getBoundingClientRect();
-    var cr = canvas.getBoundingClientRect();
+    var cr = zc.getBoundingClientRect();
     return {{
-        cx: er.left - cr.left + er.width / 2,
-        top: er.top - cr.top,
-        bottom: er.bottom - cr.top,
-        cy: er.top - cr.top + er.height / 2,
-        left: er.left - cr.left,
-        right: er.right - cr.left,
-        w: er.width,
-        h: er.height
+        cx: (er.left - cr.left + er.width / 2) / zoom,
+        top: (er.top - cr.top) / zoom,
+        bottom: (er.bottom - cr.top) / zoom,
+        cy: (er.top - cr.top + er.height / 2) / zoom,
+        left: (er.left - cr.left) / zoom,
+        right: (er.right - cr.left) / zoom,
+        w: er.width / zoom, h: er.height / zoom
     }};
 }}
-
 function curve(x1, y1, x2, y2) {{
-    var dx = x2 - x1, dy = y2 - y1;
-    var dist = Math.sqrt(dx * dx + dy * dy);
-    var t = Math.min(dist * 0.35, 70);
-    return 'M' + x1 + ',' + y1 + ' C' + x1 + ',' + (y1 + t) + ' ' + x2 + ',' + (y2 - t) + ' ' + x2 + ',' + y2;
+    var mx = (x1 + x2) / 2;
+    return 'M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2;
 }}
-
 function autoEdge(f, t) {{
     var dx = t.cx - f.cx, dy = t.cy - f.cy;
-    var x1, y1, x2, y2;
-    if (Math.abs(dy) > Math.abs(dx) * 0.3) {{
-        y1 = dy > 0 ? f.bottom : f.top;
-        x1 = f.cx;
-        y2 = dy > 0 ? t.top : t.bottom;
-        x2 = t.cx;
-    }} else {{
-        x1 = dx > 0 ? f.right : f.left;
-        y1 = f.cy;
-        x2 = dx > 0 ? t.left : t.right;
-        y2 = t.cy;
-    }}
-    return [x1, y1, x2, y2];
+    if (Math.abs(dy) > Math.abs(dx) * 0.3)
+        return [f.cx, dy > 0 ? f.bottom : f.top, t.cx, dy > 0 ? t.top : t.bottom];
+    return [dx > 0 ? f.right : f.left, f.cy, dx > 0 ? t.left : t.right, t.cy];
 }}
 
 function drawAll() {{
     var i, c, f, t, e;
     for (i = 0; i < mainConns.length; i++) {{
         c = mainConns[i];
-        f = relPos(c.from);
-        t = relPos(c.to);
+        if (!c.from || !c.from.parentNode || !c.to || !c.to.parentNode) continue;
+        f = relPos(c.from); t = relPos(c.to);
         if (isSplit) {{
-            if (c.side === 'left') {{
-                mainPaths[i].setAttribute('d', curve(f.left, f.cy, t.right, t.cy));
-            }} else {{
-                mainPaths[i].setAttribute('d', curve(f.right, f.cy, t.left, t.cy));
-            }}
+            mainPaths[i].setAttribute('d', f.cx < t.cx ? curve(f.right, f.cy, t.left, t.cy) : curve(f.left, f.cy, t.right, t.cy));
+        }} else if (isVertical) {{
+            e = autoEdge(f, t); mainPaths[i].setAttribute('d', curve(e[0], e[1], e[2], e[3]));
         }} else {{
-            e = autoEdge(f, t);
-            mainPaths[i].setAttribute('d', curve(e[0], e[1], e[2], e[3]));
+            mainPaths[i].setAttribute('d', f.cx < t.cx ? curve(f.right, f.cy, t.left, t.cy) : curve(f.left, f.cy, t.right, t.cy));
         }}
     }}
     for (i = 0; i < subConns.length; i++) {{
         c = subConns[i];
-        f = relPos(c.from);
-        t = relPos(c.to);
+        if (!c.from || !c.from.parentNode || !c.to || !c.to.parentNode) continue;
+        f = relPos(c.from); t = relPos(c.to);
         if (isSplit) {{
-            if (c.side === 'left') {{
-                subPaths[i].setAttribute('d', curve(f.left, f.cy, t.right, t.cy));
-            }} else {{
-                subPaths[i].setAttribute('d', curve(f.right, f.cy, t.left, t.cy));
-            }}
+            subPaths[i].setAttribute('d', f.cx < t.cx ? curve(f.right, f.cy, t.left, t.cy) : curve(f.left, f.cy, t.right, t.cy));
+        }} else if (isVertical) {{
+            e = autoEdge(f, t); subPaths[i].setAttribute('d', curve(e[0], e[1], e[2], e[3]));
         }} else {{
-            e = autoEdge(f, t);
-            subPaths[i].setAttribute('d', curve(e[0], e[1], e[2], e[3]));
+            subPaths[i].setAttribute('d', f.cx < t.cx ? curve(f.right, f.cy, t.left, t.cy) : curve(f.left, f.cy, t.right, t.cy));
         }}
     }}
 }}
-
 setTimeout(drawAll, 700);
 window.addEventListener('resize', drawAll);
 
-var dragEl = null, dsx = 0, dsy = 0, dox = 0, doy = 0, raf = null;
+// === DRAG ===
+var dragEl = null, dragChildren = [], dsx = 0, dsy = 0, dox = 0, doy = 0, raf = null;
 function pt(el) {{
     var t = el.style.transform;
     if (!t) return {{ x:0, y:0 }};
-    var m = t.match(/translate\(\s*([-\d.]+)px[,\s]+([-\d.]+)px\s*\)/);
+    var m = t.match(/translate\\(\\s*([-\\d.]+)px[,\\s]+([-\\d.]+)px\\s*\\)/);
     return m ? {{ x:parseFloat(m[1]), y:parseFloat(m[2]) }} : {{ x:0, y:0 }};
 }}
 function onDown(e) {{
@@ -334,20 +585,29 @@ function onDown(e) {{
     e.preventDefault();
     var p = pt(card);
     dragEl = card; dsx = e.clientX; dsy = e.clientY; dox = p.x; doy = p.y;
+    dragChildren = [];
+    if (card.classList.contains('mm-center-card')) {{
+        document.querySelectorAll('.branch-title-card').forEach(function(el) {{ dragChildren.push({{ el: el, off: pt(el) }}); }});
+        document.querySelectorAll('.point-card').forEach(function(el) {{ dragChildren.push({{ el: el, off: pt(el) }}); }});
+    }} else if (card.classList.contains('branch-title-card')) {{
+        var bi = card.getAttribute('data-branch');
+        document.querySelectorAll('.point-card[data-branch="' + bi + '"]').forEach(function(el) {{ dragChildren.push({{ el: el, off: pt(el) }}); }});
+    }}
     card.classList.add('dragging');
-    card.style.transition = 'box-shadow 0.15s, border-color 0.15s';
+    dragChildren.forEach(function(c) {{ c.el.classList.add('dragging'); }});
 }}
 function onMove(e) {{
     if (!dragEl) return;
-    dragEl.style.transform = 'translate(' + (e.clientX - dsx + dox) + 'px, ' + (e.clientY - dsy + doy) + 'px)';
+    var dx = e.clientX - dsx, dy = e.clientY - dsy;
+    dragEl.style.transform = 'translate(' + (dx + dox) + 'px, ' + (dy + doy) + 'px)';
+    dragChildren.forEach(function(c) {{ c.el.style.transform = 'translate(' + (dx + c.off.x) + 'px, ' + (dy + c.off.y) + 'px)'; }});
     if (!raf) {{ raf = requestAnimationFrame(function() {{ drawAll(); raf = null; }}); }}
 }}
 function onUp() {{
     if (!dragEl) return;
     dragEl.classList.remove('dragging');
-    dragEl.style.transition = '';
-    dragEl = null;
-    drawAll();
+    dragChildren.forEach(function(c) {{ c.el.classList.remove('dragging'); }});
+    dragEl = null; dragChildren = []; drawAll();
 }}
 canvas.addEventListener('mousedown', onDown);
 window.addEventListener('mousemove', onMove);
@@ -359,13 +619,218 @@ canvas.addEventListener('touchstart', function(e) {{
     }}
 }}, {{ passive:false }});
 window.addEventListener('touchmove', function(e) {{
-    if (dragEl && e.touches.length === 1) {{
-        e.preventDefault();
-        var t = e.touches[0];
-        onMove({{ clientX:t.clientX, clientY:t.clientY }});
-    }}
+    if (dragEl && e.touches.length === 1) {{ e.preventDefault(); onMove({{ clientX:e.touches[0].clientX, clientY:e.touches[0].clientY }}); }}
 }}, {{ passive:false }});
 window.addEventListener('touchend', onUp);
+
+// === CONTEXT MENU ===
+var ctxMenu = document.getElementById('ctxMenu');
+var ctxCenter = document.getElementById('ctxCenter');
+var ctxTarget = null;
+var highlightSet = {{}};
+
+function hideAllCtx() {{ ctxMenu.classList.remove('show'); ctxCenter.classList.remove('show'); ctxTarget = null; }}
+document.addEventListener('click', hideAllCtx);
+
+document.addEventListener('contextmenu', function(e) {{
+    var centerEl = e.target.closest('.mm-center-card');
+    var branchEl = e.target.closest('.branch-title-card, .point-card');
+    if (!centerEl && !branchEl) return;
+    e.preventDefault();
+    hideAllCtx();
+
+    if (centerEl) {{
+        ctxTarget = centerEl;
+        ctxCenter.style.left = e.clientX + 'px';
+        ctxCenter.style.top = e.clientY + 'px';
+        ctxCenter.classList.add('show');
+        var mr = ctxCenter.getBoundingClientRect();
+        if (mr.right > window.innerWidth) ctxCenter.style.left = (e.clientX - mr.width) + 'px';
+        if (mr.bottom > window.innerHeight) ctxCenter.style.top = (e.clientY - mr.height) + 'px';
+    }} else {{
+        ctxTarget = branchEl;
+        ctxMenu.style.left = e.clientX + 'px';
+        ctxMenu.style.top = e.clientY + 'px';
+        ctxMenu.classList.add('show');
+        var mr = ctxMenu.getBoundingClientRect();
+        if (mr.right > window.innerWidth) ctxMenu.style.left = (e.clientX - mr.width) + 'px';
+        if (mr.bottom > window.innerHeight) ctxMenu.style.top = (e.clientY - mr.height) + 'px';
+    }}
+}});
+
+function rgbToHex(c) {{
+    if (c.charAt(0) === '#') return c.length === 4 ? '#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3] : c;
+    var m = c.match(/\\d+/g);
+    if (!m || m.length < 3) return '#333333';
+    return '#' + (+m[0]).toString(16).padStart(2,'0') + (+m[1]).toString(16).padStart(2,'0') + (+m[2]).toString(16).padStart(2,'0');
+}}
+
+// === BRANCH/POINT CONTEXT MENU ===
+ctxMenu.addEventListener('click', function(e) {{
+    e.stopPropagation();
+    var item = e.target.closest('.ctx-item');
+    if (!item || !ctxTarget) return;
+    var action = item.getAttribute('data-action');
+    var bi = ctxTarget.getAttribute('data-branch');
+    var isTitle = ctxTarget.classList.contains('branch-title-card');
+    var isPoint = ctxTarget.classList.contains('point-card');
+    var group = ctxTarget.closest('.branch-group');
+
+    if (action === 'highlight') {{
+        var key = bi + (isTitle ? '_t' : '_p');
+        if (highlightSet[key]) {{ ctxTarget.style.boxShadow = ''; ctxTarget.style.borderColor = ''; delete highlightSet[key]; }}
+        else {{ ctxTarget.style.boxShadow = '0 0 18px 4px var(--accent, #4a90d9)'; ctxTarget.style.borderColor = 'var(--accent, #4a90d9)'; highlightSet[key] = true; }}
+    }} else if (action === 'invert') {{
+        if (!group) return;
+        snapshot();
+        group.classList.toggle('points-flipped');
+        setTimeout(drawAll, 50);
+    }} else if (action === 'edit') {{
+        var span = ctxTarget.querySelector('.card-text');
+        if (span) {{
+            span.contentEditable = 'true'; span.focus();
+            window.getSelection().selectAllChildren(span);
+            function finishEdit() {{ span.contentEditable = 'false'; span.removeEventListener('blur', finishEdit); span.removeEventListener('keydown', onKey); }}
+            function onKey(ev) {{ if (ev.key === 'Enter') {{ ev.preventDefault(); span.blur(); }} if (ev.key === 'Escape') {{ span.blur(); }} }}
+            span.addEventListener('blur', finishEdit);
+            span.addEventListener('keydown', onKey);
+        }}
+    }} else if (action === 'addPoint') {{
+        if (!group) return;
+        snapshot();
+        var pts = group.querySelector('.branch-points');
+        if (!pts) return;
+        var newPt = document.createElement('div');
+        newPt.className = 'point-card';
+        newPt.setAttribute('data-branch', bi);
+        newPt.setAttribute('data-idx', pts.children.length);
+        var bSvg = pts.querySelector('.point-card .bullet');
+        newPt.innerHTML = (bSvg ? bSvg.outerHTML : '') + '<span class="card-text">\\u65b0\\u8981\\u70b9</span>';
+        pts.appendChild(newPt);
+        cards.push(newPt);
+        var span = newPt.querySelector('.card-text');
+        if (span) {{
+            span.contentEditable = 'true'; span.focus();
+            window.getSelection().selectAllChildren(span);
+            function finPt() {{ span.contentEditable = 'false'; span.removeEventListener('blur', finPt); }}
+            span.addEventListener('blur', finPt);
+        }}
+        rebuildConns(); setTimeout(drawAll, 50);
+    }} else if (action === 'pickBg') {{
+        ctxTarget.style.background = document.getElementById('ctxBgColor').value;
+    }} else if (action === 'pickBorder') {{
+        ctxTarget.style.borderColor = document.getElementById('ctxBorderColor').value;
+    }} else if (action === 'pickText') {{
+        ctxTarget.style.color = document.getElementById('ctxTextColor').value;
+    }} else if (action === 'reset') {{
+        snapshot();
+        ctxTarget.style.cssText = '';
+        delete highlightSet[bi + (isTitle ? '_t' : '_p')];
+        if (group) group.querySelectorAll('.point-card').forEach(function(p) {{ p.style.cssText = ''; }});
+    }} else if (action === 'deletePoint') {{
+        if (!isPoint || !group) return;
+        snapshot();
+        ctxTarget.remove();
+        var ptCards = group.querySelectorAll('.point-card');
+        for (var i = 0; i < ptCards.length; i++) ptCards[i].setAttribute('data-idx', i);
+        rebuildConns(); setTimeout(drawAll, 50);
+    }} else if (action === 'delete') {{
+        if (!group) return;
+        snapshot();
+        var delBi = group.getAttribute('data-branch');
+        group.remove();
+        mainConns = mainConns.filter(function(c) {{ return c.to && c.to.getAttribute('data-branch') !== delBi; }});
+        subConns = subConns.filter(function(c) {{
+            var fb = c.from ? c.from.closest('.branch-group') : null;
+            var tb = c.to ? c.to.closest('.branch-group') : null;
+            return (!fb || fb.getAttribute('data-branch') !== delBi) && (!tb || tb.getAttribute('data-branch') !== delBi);
+        }});
+        rebuildConns(); setTimeout(drawAll, 50);
+    }}
+    hideAllCtx();
+}});
+
+// === CENTER CARD CONTEXT MENU ===
+ctxCenter.addEventListener('click', function(e) {{
+    e.stopPropagation();
+    var item = e.target.closest('.ctx-item');
+    if (!item || !ctxTarget) return;
+    var action = item.getAttribute('data-action');
+
+    if (action === 'edit') {{
+        var span = ctxTarget;
+        span.contentEditable = 'true'; span.focus();
+        window.getSelection().selectAllChildren(span);
+        function finishEdit() {{ span.contentEditable = 'false'; span.removeEventListener('blur', finishEdit); span.removeEventListener('keydown', onKey); }}
+        function onKey(ev) {{ if (ev.key === 'Enter') {{ ev.preventDefault(); span.blur(); }} if (ev.key === 'Escape') {{ span.blur(); }} }}
+        span.addEventListener('blur', finishEdit);
+        span.addEventListener('keydown', onKey);
+    }} else if (action === 'highlight') {{
+        if (highlightSet['_center']) {{ ctxTarget.style.boxShadow = ''; delete highlightSet['_center']; }}
+        else {{ ctxTarget.style.boxShadow = '0 0 24px 6px var(--accent, #4a90d9)'; highlightSet['_center'] = true; }}
+    }} else if (action === 'expandAll') {{
+        snapshot();
+        document.querySelectorAll('.branch-group').forEach(function(g) {{ g.style.opacity = '1'; g.style.transform = ''; }});
+        setTimeout(drawAll, 50);
+    }} else if (action === 'collapseAll') {{
+        snapshot();
+        document.querySelectorAll('.branch-group').forEach(function(g) {{ g.style.opacity = '0.3'; g.style.transform = 'scale(0.85)'; }});
+        setTimeout(drawAll, 50);
+    }} else if (action === 'pickBg') {{
+        ctxTarget.style.background = document.getElementById('ctxCenterBg').value;
+    }} else if (action === 'pickText') {{
+        ctxTarget.style.color = document.getElementById('ctxCenterText').value;
+    }} else if (action === 'resetAll') {{
+        snapshot();
+        ctxTarget.style.cssText = '';
+        delete highlightSet['_center'];
+        document.querySelectorAll('.branch-title-card, .point-card').forEach(function(c) {{ c.style.cssText = ''; }});
+    }}
+    hideAllCtx();
+}});
+
+// === REBUILD CONNECTIONS ===
+function rebuildConns() {{
+    mainConns = []; subConns = [];
+    centerCard = document.getElementById('centerCard');
+    document.querySelectorAll('.branch-title-card').forEach(function(bt) {{
+        var side = 'none';
+        if (isSplit) {{ var g = bt.closest('.branch-group'); if (g) side = g.classList.contains('side-left') ? 'left' : 'right'; }}
+        mainConns.push({{ from: centerCard, to: bt, side: side }});
+    }});
+    document.querySelectorAll('.branch-group').forEach(function(g) {{
+        var title = g.querySelector('.branch-title-card');
+        var side = 'none';
+        if (isSplit) {{ side = g.classList.contains('side-left') ? 'left' : 'right'; }}
+        g.querySelectorAll('.point-card').forEach(function(pt) {{ subConns.push({{ from: title, to: pt, side: side }}); }});
+    }});
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    mainPaths = mainConns.map(function() {{ return makePath('conn-main'); }});
+    subPaths = subConns.map(function() {{ return makePath('conn-branch'); }});
+    setTimeout(drawAll, 50);
+}}
+
+ctxMenu.querySelectorAll('input[type="color"]').forEach(function(inp) {{
+    inp.addEventListener('click', function(e) {{ e.stopPropagation(); }});
+    inp.addEventListener('input', function(e) {{
+        e.stopPropagation();
+        var action = inp.closest('.ctx-item').getAttribute('data-action');
+        if (!ctxTarget) return;
+        if (action === 'pickBg') ctxTarget.style.background = inp.value;
+        else if (action === 'pickBorder') ctxTarget.style.borderColor = inp.value;
+        else if (action === 'pickText') ctxTarget.style.color = inp.value;
+    }});
+}});
+ctxCenter.querySelectorAll('input[type="color"]').forEach(function(inp) {{
+    inp.addEventListener('click', function(e) {{ e.stopPropagation(); }});
+    inp.addEventListener('input', function(e) {{
+        e.stopPropagation();
+        var action = inp.closest('.ctx-item').getAttribute('data-action');
+        if (!ctxTarget) return;
+        if (action === 'pickBg') ctxTarget.style.background = inp.value;
+        else if (action === 'pickText') ctxTarget.style.color = inp.value;
+    }});
+}});
 
 }})();
 </script>

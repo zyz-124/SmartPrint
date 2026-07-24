@@ -1,8 +1,38 @@
 """GUI theme definitions for SubjectDraw."""
 
-DEFAULT_GUI_THEME = "浅色极简"
+DEFAULT_GUI_THEME = "炫紫"
 
 THEMES = {
+    "炫紫": {
+        "sidebar_bg": "#6C5CE7",
+        "sidebar_fg": "#FFFFFF",
+        "sidebar_active": "#5A4BD1",
+        "sidebar_accent": "#A29BFE",
+        "bg": "#F0F2F5",
+        "card": "#FFFFFF",
+        "primary": "#6C5CE7",
+        "primary_h": "#5A4BD1",
+        "accent": "#00CEC9",
+        "border": "#E8EAF0",
+        "text": "#2D3436",
+        "text2": "#636E72",
+        "muted": "#B2BEC3",
+        "input_bg": "#FAFBFC",
+        "success": "#00B894",
+        "error": "#FF6B6B",
+        "btn_primary_bg": "#6C5CE7",
+        "btn_primary_fg": "#FFFFFF",
+        "btn_secondary_bg": "#F0EDFF",
+        "btn_secondary_fg": "#6C5CE7",
+        "scrollbar_bg": "#E8EAF0",
+        "scrollbar_fg": "#B2BEC3",
+        "link": "#6C5CE7",
+        "hover_bg": "#F0EDFF",
+        "sidebar_width": 220,
+        "card_radius": 12,
+        "font_family": "Microsoft YaHei UI",
+        "font_size": 10,
+    },
     "浅色极简": {
         "sidebar_bg": "#1E1E2E",
         "sidebar_fg": "#CDD6F4",
